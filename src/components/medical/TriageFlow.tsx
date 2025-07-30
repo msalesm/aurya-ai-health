@@ -49,8 +49,8 @@ const TriageFlow = () => {
     },
     {
       id: "visual-assessment",
-      title: "Telemetria Facial Google",
-      description: "Google Vision API + detecção PPG de batimentos",
+      title: "Google Vision API",
+      description: "Análise facial completa com IA do Google Cloud",
       icon: <Video className="h-6 w-6" />,
       status: "pending"
     },
