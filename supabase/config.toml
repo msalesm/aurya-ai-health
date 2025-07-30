@@ -1,1 +1,13 @@
 project_id = "skwpuolpkgntqdmgzwlr"
+
+[functions.medical-anamnesis]
+verify_jwt = false
+
+[functions.voice-analysis]
+verify_jwt = false
+
+[functions.google-health-data]
+verify_jwt = false
+
+[functions.medical-inference]
+verify_jwt = false

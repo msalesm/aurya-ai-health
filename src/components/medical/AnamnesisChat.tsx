@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Brain, Send, Bot, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: string;
@@ -35,31 +36,39 @@ const AnamnesisChat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponses = [
-        "Entendo. Há quanto tempo você está sentindo isso?",
-        "Você já sentiu algo parecido antes? Tem algum histórico familiar relacionado?",
-        "Está tomando algum medicamento atualmente?",
-        "Em uma escala de 1 a 10, como você classificaria a intensidade do sintoma?",
-        "Obrigada pelas informações. Com base no que me contou, vou processar uma análise preliminar."
-      ];
-      
-      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-      
+    try {
+      const response = await supabase.functions.invoke('medical-anamnesis', {
+        body: {
+          message: currentInput,
+          consultationId: `consultation-${Date.now()}`,
+          userId: 'demo-user'
+        }
+      });
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: "ai",
-        content: randomResponse,
+        content: response.data?.response || "Desculpe, houve um erro. Pode repetir?",
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Erro:', error);
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: "ai",
+        content: "Entendo. Pode me contar mais detalhes sobre seus sintomas?",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (

@@ -5,6 +5,8 @@ import VitalSignsCard from "@/components/medical/VitalSignsCard";
 import TriageFlow from "@/components/medical/TriageFlow";
 import AnamnesisChat from "@/components/medical/AnamnesisChat";
 import DiagnosticResults from "@/components/medical/DiagnosticResults";
+import HealthDataDashboard from "@/components/medical/HealthDataDashboard";
+import AIIntegrationStatus from "@/components/medical/AIIntegrationStatus";
 import heroImage from "@/assets/medical-hero.jpg";
 
 const Index = () => {
@@ -26,19 +28,12 @@ const Index = () => {
       {/* Main Content */}
       <div className="container mx-auto px-6 pb-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-card shadow-card">
-            <TabsTrigger value="triage" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Triagem
-            </TabsTrigger>
-            <TabsTrigger value="vitals" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Sinais Vitais
-            </TabsTrigger>
-            <TabsTrigger value="anamnesis" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Anamnese
-            </TabsTrigger>
-            <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              Resultados
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5 bg-card shadow-card">
+            <TabsTrigger value="triage">Triagem IA</TabsTrigger>
+            <TabsTrigger value="anamnesis">Anamnese</TabsTrigger>
+            <TabsTrigger value="dados">Dados Saúde</TabsTrigger>
+            <TabsTrigger value="results">Resultados</TabsTrigger>
+            <TabsTrigger value="apis">APIs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="triage" className="space-y-6">
@@ -52,27 +47,12 @@ const Index = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="vitals" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <VitalSignsCard 
-                heartRate={75}
-                bloodPressure="118/76"
-                temperature={36.7}
-                oxygenSaturation={99}
-              />
-              <VitalSignsCard 
-                heartRate={68}
-                bloodPressure="115/72"
-                temperature={36.4}
-                oxygenSaturation={98}
-              />
-              <VitalSignsCard 
-                heartRate={82}
-                bloodPressure="125/80"
-                temperature={36.8}
-                oxygenSaturation={97}
-              />
-            </div>
+          <TabsContent value="dados" className="space-y-6">
+            <HealthDataDashboard />
+          </TabsContent>
+
+          <TabsContent value="apis" className="space-y-6">
+            <AIIntegrationStatus />
           </TabsContent>
 
           <TabsContent value="anamnesis" className="space-y-6">
