@@ -1,18 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { HfInference } from 'https://esm.sh/@huggingface/inference@2.3.2';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const huggingFaceToken = Deno.env.get('HUGGINGFACE_TOKEN');
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
-const hf = new HfInference(huggingFaceToken);
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,15 +48,96 @@ serve(async (req) => {
       throw new Error('Failed to process audio data');
     }
 
-    // 1. Transcrição de áudio com fallback (sempre mock para evitar erro Hugging Face)
-    let transcription = { text: 'Áudio analisado com sucesso - análise simulada para demonstração' };
-    console.log('Using mock transcription to avoid HuggingFace API issues');
+    // 1. Transcrição com OpenAI Whisper
+    let transcription;
+    try {
+      console.log('Transcribing audio with OpenAI Whisper...');
+      
+      // Criar FormData para Whisper
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'pt');
 
-    // 2. Análise emocional simulada (mock para evitar API issues)
-    const emotionalAnalysis = [{
-      label: Math.random() > 0.5 ? 'calm' : 'anxiety',
-      score: Math.random() * 0.4 + 0.6 // Score entre 0.6 e 1.0
-    }];
+      const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!whisperResponse.ok) {
+        throw new Error(`Whisper API error: ${whisperResponse.status}`);
+      }
+
+      const whisperData = await whisperResponse.json();
+      transcription = { text: whisperData.text };
+      console.log('Transcription completed:', transcription.text);
+      
+    } catch (transcriptionError) {
+      console.error('Transcription error:', transcriptionError);
+      transcription = { text: 'Falha na transcrição - usando análise simulada' };
+    }
+
+    // 2. Análise emocional com GPT-4
+    let emotionalAnalysis;
+    try {
+      console.log('Analyzing emotional tone with GPT-4...');
+      
+      const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Analise o estado emocional do texto transcrito. Responda apenas com um JSON no formato: {"emotion": "calm|anxiety|stress|sadness|anger|joy", "confidence": 0.8, "indicators": ["indicador1", "indicador2"]}'
+            },
+            {
+              role: 'user',
+              content: `Analise o estado emocional desta transcrição: "${transcription.text}"`
+            }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!gptResponse.ok) {
+        throw new Error(`GPT API error: ${gptResponse.status}`);
+      }
+
+      const gptData = await gptResponse.json();
+      const emotionData = JSON.parse(gptData.choices[0].message.content);
+      
+      emotionalAnalysis = [{
+        label: emotionData.emotion,
+        score: emotionData.confidence
+      }];
+      
+      console.log('Emotional analysis completed:', emotionalAnalysis);
+      
+    } catch (emotionError) {
+      console.error('Emotion analysis error:', emotionError);
+      // Fallback baseado em palavras-chave
+      const text = transcription.text.toLowerCase();
+      let emotion = 'calm';
+      let confidence = 0.7;
+      
+      if (text.includes('dor') || text.includes('preocup') || text.includes('ansioso')) {
+        emotion = 'anxiety';
+        confidence = 0.8;
+      } else if (text.includes('triste') || text.includes('desânimo')) {
+        emotion = 'sadness';
+        confidence = 0.75;
+      }
+      
+      emotionalAnalysis = [{ label: emotion, score: confidence }];
+    }
 
     // 3. Análise de estresse vocal
     const stressAnalysis = await analyzeVocalStress(audioBlob);
