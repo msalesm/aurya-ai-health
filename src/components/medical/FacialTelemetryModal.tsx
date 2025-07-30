@@ -214,82 +214,85 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5" />
-            Telemetria Facial Híbrida
-            <Badge variant="outline" className="ml-2">
+      <DialogContent className="max-w-full md:max-w-2xl mx-2 md:mx-auto h-[90vh] md:h-auto max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+          <DialogTitle className="flex items-center gap-2 text-sm md:text-base">
+            <Eye className="h-4 w-4 md:h-5 md:w-5" />
+            Telemetria Facial
+            <Badge variant="outline" className="ml-2 text-xs">
               Google Vision API
             </Badge>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Controles de Provider - Google como padrão */}
-          <div className="flex gap-2">
+        <div className="space-y-4 md:space-y-6 p-1">
+          {/* Controles de Provider - Stack vertical em mobile */}
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant={analysisProvider === 'google' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setAnalysisProvider('google')}
               disabled={isRecording}
+              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
             >
               <Brain className="h-3 w-3 mr-1" />
-              Google Vision (Recomendado)
+              Google Vision
             </Button>
             <Button
               variant={analysisProvider === 'hybrid' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setAnalysisProvider('hybrid')}
               disabled={isRecording}
+              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
             >
               <Activity className="h-3 w-3 mr-1" />
-              Híbrido (Google + PPG)
+              Híbrido
             </Button>
             <Button
               variant={analysisProvider === 'ppg' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setAnalysisProvider('ppg')}
               disabled={isRecording}
+              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
             >
               <Heart className="h-3 w-3 mr-1" />
-              PPG Apenas
+              PPG
             </Button>
           </div>
 
-          {/* Área do vídeo */}
+          {/* Área do vídeo - Altura responsiva */}
           <div className="relative">
             <video
               ref={videoRef}
-              className="w-full h-64 bg-gray-900 rounded-lg object-cover"
+              className="w-full h-48 sm:h-56 md:h-64 bg-muted rounded-lg object-cover"
               playsInline
               muted
             />
             {faceDetected && (
-              <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
+              <div className="absolute top-2 left-2 bg-success text-success-foreground px-2 py-1 rounded text-xs">
                 <User className="h-3 w-3 inline mr-1" />
                 Face detectada
               </div>
             )}
             {isRecording && (
-              <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs animate-pulse">
+              <div className="absolute top-2 right-2 bg-destructive text-destructive-foreground px-2 py-1 rounded text-xs animate-pulse">
                 <Camera className="h-3 w-3 inline mr-1" />
                 REC
               </div>
             )}
           </div>
 
-          {/* Métricas em tempo real */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Métricas em tempo real - Stack em mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-red-500" />
-                  Batimentos Cardíacos
+                <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                  <Heart className="h-3 w-3 md:h-4 md:w-4 text-destructive" />
+                  Batimentos
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-500">
+              <CardContent className="pt-0">
+                <div className="text-xl md:text-2xl font-bold text-destructive">
                   {currentHeartRate || '--'} BPM
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -300,16 +303,16 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-blue-500" />
-                  Nível de Estresse
+                <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+                  <Activity className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                  Estresse
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-500">
+              <CardContent className="pt-0">
+                <div className="text-xl md:text-2xl font-bold text-primary">
                   {stressLevel}/10
                 </div>
-                <Progress value={stressLevel * 10} className="h-2 mt-1" />
+                <Progress value={stressLevel * 10} className="h-1 md:h-2 mt-1" />
               </CardContent>
             </Card>
           </div>
@@ -317,8 +320,8 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
           {/* Barra de progresso */}
           {isRecording && (
             <div className="space-y-2">
-              <Progress value={progress} className="h-3" />
-              <p className="text-sm text-center text-muted-foreground">
+              <Progress value={progress} className="h-2 md:h-3" />
+              <p className="text-xs md:text-sm text-center text-muted-foreground">
                 Analisando com Google Vision API... {Math.round(progress)}%
               </p>
             </div>
@@ -326,33 +329,46 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
 
           {/* Loading de análise */}
           {isAnalyzing && (
-            <div className="text-center space-y-4">
-              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-              <p className="text-sm text-muted-foreground">
+            <div className="text-center space-y-4 py-4">
+              <div className="animate-spin w-6 h-6 md:w-8 md:h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Processando dados com Google Vision API...
               </p>
             </div>
           )}
 
-          {/* Controles */}
-          <div className="flex gap-2">
+          {/* Controles - Sempre visíveis e touch-friendly */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
             {!isRecording && !isAnalyzing ? (
-              <Button onClick={startTelemetry} className="flex-1">
-                Iniciar Análise Híbrida (15s)
+              <Button 
+                onClick={startTelemetry} 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Iniciar Análise (15s)
               </Button>
             ) : isRecording ? (
-              <Button onClick={stopTelemetry} variant="outline" className="flex-1">
+              <Button 
+                onClick={stopTelemetry} 
+                variant="destructive" 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+              >
                 Parar Análise
               </Button>
             ) : null}
-            <Button onClick={onClose} variant="outline">
+            
+            <Button 
+              onClick={onClose} 
+              variant="outline"
+              className="w-full sm:w-auto min-h-[44px] text-sm md:text-base"
+            >
               Fechar
             </Button>
           </div>
 
-          {/* Instruções */}
-          <div className="text-xs text-muted-foreground text-center">
-            Olhe diretamente para a câmera. O Google Vision API detectará características faciais, sinais vitais e estado emocional.
+          {/* Instruções - Texto menor em mobile */}
+          <div className="text-xs md:text-sm text-muted-foreground text-center px-2">
+            Olhe diretamente para a câmera. O Google Vision API detectará características faciais e sinais vitais.
           </div>
         </div>
       </DialogContent>

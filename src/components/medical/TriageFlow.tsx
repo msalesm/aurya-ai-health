@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,74 +116,88 @@ const TriageFlow = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-2 md:px-0">
       <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="h-5 w-5 text-primary" />
+        <CardHeader className="pb-3 md:pb-6">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Stethoscope className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             Fluxo de Triagem Médica
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {steps.map((step, index) => {
               const status = getStepStatus(step.id);
               
               return (
-                <div key={step.id} className="flex items-center gap-4 p-4 rounded-lg border border-border">
-                  <div className={`
-                    p-3 rounded-full flex items-center justify-center
-                    ${status === "completed" ? "bg-success text-success-foreground" : ""}
-                    ${status === "active" ? "bg-primary text-primary-foreground" : ""}
-                    ${status === "pending" ? "bg-muted text-muted-foreground" : ""}
-                  `}>
-                    {step.icon}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold">{step.title}</h3>
-                      <Badge variant={
-                        status === "completed" ? "default" : 
-                        status === "active" ? "secondary" : "outline"
-                      }>
-                        {status === "completed" ? "Concluído" : 
-                         status === "active" ? "Em Andamento" : "Pendente"}
-                      </Badge>
+                <div key={step.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 md:p-4 rounded-lg border border-border">
+                  {/* Cabeçalho com ícone e badge */}
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className={`
+                      p-2 md:p-3 rounded-full flex items-center justify-center shrink-0
+                      ${status === "completed" ? "bg-success text-success-foreground" : ""}
+                      ${status === "active" ? "bg-primary text-primary-foreground" : ""}
+                      ${status === "pending" ? "bg-muted text-muted-foreground" : ""}
+                    `}>
+                      {React.cloneElement(step.icon, { className: "h-4 w-4 md:h-6 md:w-6" })}
                     </div>
-                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                        <h3 className="font-semibold text-sm md:text-base truncate">{step.title}</h3>
+                        <Badge 
+                          variant={
+                            status === "completed" ? "default" : 
+                            status === "active" ? "secondary" : "outline"
+                          }
+                          className="text-xs w-fit"
+                        >
+                          {status === "completed" ? "Concluído" : 
+                           status === "active" ? "Ativo" : "Pendente"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {step.description}
+                      </p>
+                    </div>
                   </div>
                   
-                  {status === "active" && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleStartStep(step.id as TriageStep)}
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Iniciar
-                    </Button>
-                  )}
-                  
-                   {status === "pending" && index === steps.findIndex(s => s.id === currentStep) + 1 && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => handleStartStep(step.id as TriageStep)}
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      Iniciar
-                    </Button>
-                  )}
-                  
-                  {step.id === "analysis" && completedSteps.size >= 4 && (
-                    <Button 
-                      size="sm"
-                      onClick={() => handleStartStep(step.id as TriageStep)}
-                    >
-                      <Brain className="h-4 w-4 mr-2" />
-                      Ver Análise
-                    </Button>
-                  )}
+                  {/* Botões de ação */}
+                  <div className="flex gap-2 sm:shrink-0">
+                    {status === "active" && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleStartStep(step.id as TriageStep)}
+                        className="w-full sm:w-auto min-h-[40px] text-xs md:text-sm"
+                      >
+                        <Play className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        Iniciar
+                      </Button>
+                    )}
+                    
+                    {status === "pending" && index === steps.findIndex(s => s.id === currentStep) + 1 && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleStartStep(step.id as TriageStep)}
+                        className="w-full sm:w-auto min-h-[40px] text-xs md:text-sm"
+                      >
+                        <Play className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        Iniciar
+                      </Button>
+                    )}
+                    
+                    {step.id === "analysis" && completedSteps.size >= 4 && (
+                      <Button 
+                        size="sm"
+                        onClick={() => handleStartStep(step.id as TriageStep)}
+                        className="w-full sm:w-auto min-h-[40px] text-xs md:text-sm"
+                      >
+                        <Brain className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        Ver Análise
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
