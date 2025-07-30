@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Download, AlertTriangle, CheckCircle } from "lucide-react";
+import { FileText, Download, AlertTriangle, CheckCircle, Settings } from "lucide-react";
+import { MedicalConfiguration, MedicalConfig } from './MedicalConfiguration';
+import { ReportPreview } from './ReportPreview';
 
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
@@ -24,6 +26,16 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [medicalConfig, setMedicalConfig] = useState<MedicalConfig>({
+    doctorName: 'Dr. Maria Silva',
+    crm: 'CRM/SP 123456',
+    clinic: 'Clínica MedIA - Inteligência Artificial Médica',
+    signature: 'Dra. Maria Silva\nCRM/SP 123456\nEspecialista em Medicina Interna',
+    patientName: 'João da Silva',
+    patientAge: '45',
+    patientId: `PAT-${Date.now()}`
+  });
 
   const generateClinicalAnalysis = () => {
     setIsAnalyzing(true);
@@ -138,65 +150,92 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     if (!clinicalReport) return;
     
     try {
-      // Importar jsPDF dinamicamente
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // Cabeçalho
-      doc.setFontSize(18);
-      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
-      
+      // Cabeçalho com logo e dados da clínica
+      doc.setFontSize(20);
+      doc.text(medicalConfig.clinic, 20, 25);
       doc.setFontSize(12);
-      doc.text(`Paciente ID: ${clinicalReport.patientId}`, 20, 35);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 45);
+      doc.text('Sistema de Triagem com Inteligência Artificial', 20, 35);
+      
+      // Linha separadora
+      doc.line(20, 45, 190, 45);
+      
+      // Dados do paciente e médico
+      doc.setFontSize(14);
+      doc.text('DADOS DO PACIENTE', 20, 60);
+      doc.setFontSize(10);
+      doc.text(`Nome: ${medicalConfig.patientName}`, 20, 70);
+      doc.text(`Idade: ${medicalConfig.patientAge} anos`, 20, 80);
+      doc.text(`ID: ${medicalConfig.patientId}`, 20, 90);
+      
+      doc.setFontSize(14);
+      doc.text('MÉDICO RESPONSÁVEL', 110, 60);
+      doc.setFontSize(10);
+      doc.text(`${medicalConfig.doctorName}`, 110, 70);
+      doc.text(`${medicalConfig.crm}`, 110, 80);
+      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 110, 90);
       
       // Urgência
       doc.setFontSize(14);
-      doc.text('NÍVEL DE URGÊNCIA:', 20, 65);
+      doc.text('CLASSIFICAÇÃO DE URGÊNCIA', 20, 110);
       doc.setFontSize(12);
-      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 75);
+      doc.text(`Nível: ${clinicalReport.overallUrgency.level}`, 20, 120);
+      doc.text(`Ação: ${clinicalReport.overallUrgency.action}`, 20, 130);
       
       // Sintomas
       doc.setFontSize(14);
-      doc.text('SINTOMAS IDENTIFICADOS:', 20, 95);
+      doc.text('SINTOMAS IDENTIFICADOS', 20, 150);
       doc.setFontSize(10);
-      let yPos = 105;
+      let yPos = 160;
       clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
         doc.text(`• ${symptom}`, 25, yPos);
-        yPos += 10;
+        yPos += 8;
       });
       
       // Recomendações
       yPos += 10;
       doc.setFontSize(14);
-      doc.text('RECOMENDAÇÕES:', 20, yPos);
+      doc.text('RECOMENDAÇÕES MÉDICAS', 20, yPos);
       yPos += 10;
       doc.setFontSize(10);
       clinicalReport.recommendations?.forEach((rec: string) => {
         doc.text(`• ${rec}`, 25, yPos);
-        yPos += 10;
+        yPos += 8;
       });
       
-      // Dados técnicos
-      yPos += 10;
+      // Assinatura digital
+      yPos += 20;
       doc.setFontSize(12);
-      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 20, yPos);
-      doc.text(`Qualidade dos dados: ${clinicalReport.dataQuality}`, 20, yPos + 10);
+      doc.text('ASSINATURA DIGITAL', 20, yPos);
+      yPos += 10;
+      doc.setFontSize(10);
+      const signatureLines = medicalConfig.signature.split('\n');
+      signatureLines.forEach((line) => {
+        doc.text(line, 20, yPos);
+        yPos += 8;
+      });
+      
+      // Rodapé
+      doc.setFontSize(8);
+      doc.text(`Relatório gerado em ${new Date().toLocaleString('pt-BR')} - Sistema MedIA`, 20, 280);
+      doc.text(`Confiabilidade: ${clinicalReport.confidence}% | Qualidade: ${clinicalReport.dataQuality}`, 20, 285);
       
       // Salvar PDF
-      doc.save(`relatorio-triagem-${clinicalReport.patientId}.pdf`);
+      doc.save(`relatorio-medico-${medicalConfig.patientName}-${medicalConfig.patientId}.pdf`);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       // Fallback para JSON
-      const dataStr = JSON.stringify(clinicalReport, null, 2);
+      const dataStr = JSON.stringify({ clinicalReport, medicalConfig }, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `relatorio-clinico-${clinicalReport?.patientId}.json`;
+      link.download = `relatorio-clinico-${medicalConfig.patientId}.json`;
       link.click();
       URL.revokeObjectURL(url);
     }
@@ -282,77 +321,49 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Urgência Geral
-                    <Badge variant={clinicalReport?.overallUrgency?.color as any}>
-                      {clinicalReport?.overallUrgency?.level}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {clinicalReport?.overallUrgency?.action}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Confiabilidade</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Progress value={clinicalReport?.confidence} className="flex-1" />
-                    <span className="text-sm font-medium">{clinicalReport?.confidence}%</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Qualidade dos dados: {clinicalReport?.dataQuality}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Sintomas Identificados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {clinicalReport?.consolidatedSymptoms?.map((symptom: string, index: number) => (
-                    <Badge key={index} variant="outline">{symptom}</Badge>
-                  ))}
+            {showConfig ? (
+              <div className="space-y-4">
+                <MedicalConfiguration 
+                  onConfigSave={(config) => {
+                    setMedicalConfig(config);
+                    setShowConfig(false);
+                  }}
+                  initialConfig={medicalConfig}
+                />
+                <Button onClick={() => setShowConfig(false)} variant="outline" className="w-full">
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Pré-visualização do Relatório Médico</h3>
+                  <Button onClick={() => setShowConfig(true)} variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Configurações
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+                
+                <ReportPreview 
+                  clinicalReport={clinicalReport}
+                  medicalConfig={medicalConfig}
+                />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recomendações</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {clinicalReport?.recommendations?.map((rec: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                      <span className="text-sm">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <div className="flex gap-2">
-              <Button onClick={generatePDFReport} variant="outline" className="flex-1">
-                <Download className="h-4 w-4 mr-2" />
-                Baixar Relatório PDF
-              </Button>
-              <Button onClick={onClose} className="flex-1">
-                Finalizar
-              </Button>
-            </div>
+                <div className="flex gap-2">
+                  <Button onClick={generatePDFReport} variant="outline" className="flex-1">
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar Relatório PDF
+                  </Button>
+                  <Button onClick={() => setShowConfig(true)} variant="outline">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Editar Dados
+                  </Button>
+                  <Button onClick={onClose} className="flex-1">
+                    Finalizar
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </DialogContent>
