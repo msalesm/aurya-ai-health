@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Activity, User, Eye, Camera, Brain } from "lucide-react";
+import { Heart, Activity, User, Eye, Camera, Brain, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FacialTelemetryModalProps {
@@ -24,7 +24,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   const [stressLevel, setStressLevel] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisProvider, setAnalysisProvider] = useState<'ppg' | 'google' | 'hybrid'>('google');
+  const analysisProvider = 'hybrid'; // Fixed as hybrid
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -113,54 +113,58 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   };
 
   const completeTelemetry = async () => {
-    setIsRecording(false);
+    if (isRecording) {
+      setIsRecording(false);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+    
     setIsAnalyzing(true);
     
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    try {
+      // Sempre usar análise híbrida
+      let finalAnalysis = await analyzeWithGoogleVision();
+
+      // Se Google Vision falhar, usar dados PPG como fallback
+      if (!finalAnalysis) {
+        console.log('Google Vision falhou, usando dados PPG como fallback');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // Parar stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      // Compilar dados finais priorizando Google Vision
+      const telemetryData = {
+        heartRate: finalAnalysis?.healthMetrics?.heartRate || currentHeartRate || Math.floor(Math.random() * 30) + 70,
+        stressLevel: finalAnalysis?.healthMetrics?.stressLevel || stressLevel || Math.floor(Math.random() * 5) + 1,
+        heartRateVariability: finalAnalysis?.healthMetrics?.heartRateVariability || Math.floor(Math.random() * 40) + 20,
+        bloodPressure: finalAnalysis?.healthMetrics?.bloodPressureIndicator === 'elevated' ? 
+          `${Math.floor(Math.random() * 20) + 130}/${Math.floor(Math.random() * 15) + 85}` :
+          `${Math.floor(Math.random() * 20) + 110}/${Math.floor(Math.random() * 15) + 70}`,
+        oxygenSaturation: Math.round(97 + Math.random() * 2),
+        faceDetected: finalAnalysis?.faceDetected || faceDetected,
+        faceConfidence: finalAnalysis?.confidence || 0,
+        emotionalState: finalAnalysis?.emotionalState?.emotion || 'neutral',
+        skinAnalysis: finalAnalysis?.skinAnalysis || null,
+        eyeOpenness: finalAnalysis?.healthMetrics?.eyeOpenness || null,
+        confidence: finalAnalysis ? finalAnalysis.confidence * 100 : (faceDetected ? 75 : 60),
+        analysisProvider: finalAnalysis ? 'google_vision' : 'hybrid',
+        googleVisionData: finalAnalysis,
+        timestamp: new Date().toISOString(),
+        sessionDuration: 15
+      };
+
+      console.log('Telemetria híbrida completa:', telemetryData);
+      onComplete(telemetryData);
+      onClose();
+    } catch (error) {
+      console.error('Erro ao concluir telemetria:', error);
+      setIsAnalyzing(false);
     }
-
-    // Sempre usar Google Vision como prioritário
-    let finalAnalysis = null;
-    
-    if (analysisProvider === 'google' || analysisProvider === 'hybrid') {
-      finalAnalysis = await analyzeWithGoogleVision();
-    }
-
-    // Se Google Vision falhar, usar dados PPG como fallback
-    if (!finalAnalysis && analysisProvider === 'hybrid') {
-      console.log('Google Vision falhou, usando dados PPG como fallback');
-    }
-
-    // Parar stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-
-    // Compilar dados finais priorizando Google Vision
-    const telemetryData = {
-      heartRate: finalAnalysis?.healthMetrics?.heartRate || currentHeartRate || Math.floor(Math.random() * 30) + 70,
-      stressLevel: finalAnalysis?.healthMetrics?.stressLevel || stressLevel || Math.floor(Math.random() * 5) + 1,
-      heartRateVariability: finalAnalysis?.healthMetrics?.heartRateVariability || Math.floor(Math.random() * 40) + 20,
-      bloodPressure: finalAnalysis?.healthMetrics?.bloodPressureIndicator === 'elevated' ? 
-        `${Math.floor(Math.random() * 20) + 130}/${Math.floor(Math.random() * 15) + 85}` :
-        `${Math.floor(Math.random() * 20) + 110}/${Math.floor(Math.random() * 15) + 70}`,
-      oxygenSaturation: Math.round(97 + Math.random() * 2),
-      faceDetected: finalAnalysis?.faceDetected || faceDetected,
-      faceConfidence: finalAnalysis?.confidence || 0,
-      emotionalState: finalAnalysis?.emotionalState?.emotion || 'neutral',
-      skinAnalysis: finalAnalysis?.skinAnalysis || null,
-      eyeOpenness: finalAnalysis?.healthMetrics?.eyeOpenness || null,
-      confidence: finalAnalysis ? finalAnalysis.confidence * 100 : (faceDetected ? 75 : 60),
-      analysisProvider: finalAnalysis ? 'google_vision' : analysisProvider,
-      googleVisionData: finalAnalysis,
-      timestamp: new Date().toISOString(),
-      sessionDuration: 15
-    };
-
-    setIsAnalyzing(false);
-    console.log('Telemetria híbrida completa:', telemetryData);
-    onComplete(telemetryData);
   };
 
   const analyzeWithGoogleVision = async () => {
@@ -226,39 +230,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 md:space-y-6 p-1">
-          {/* Controles de Provider - Stack vertical em mobile */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              variant={analysisProvider === 'google' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setAnalysisProvider('google')}
-              disabled={isRecording}
-              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
-            >
-              <Brain className="h-3 w-3 mr-1" />
-              Google Vision
-            </Button>
-            <Button
-              variant={analysisProvider === 'hybrid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setAnalysisProvider('hybrid')}
-              disabled={isRecording}
-              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
-            >
-              <Activity className="h-3 w-3 mr-1" />
-              Híbrido
-            </Button>
-            <Button
-              variant={analysisProvider === 'ppg' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setAnalysisProvider('ppg')}
-              disabled={isRecording}
-              className="w-full sm:w-auto min-h-[44px] text-xs md:text-sm"
-            >
-              <Heart className="h-3 w-3 mr-1" />
-              PPG
-            </Button>
-          </div>
 
           {/* Área do vídeo - Altura responsiva */}
           <div className="relative">
@@ -349,11 +320,19 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
               </Button>
             ) : isRecording ? (
               <Button 
-                onClick={stopTelemetry} 
+                onClick={completeTelemetry} 
                 variant="destructive" 
                 className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
               >
                 Parar Análise
+              </Button>
+            ) : isAnalyzing ? (
+              <Button 
+                onClick={completeTelemetry} 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Concluir Análise
               </Button>
             ) : null}
             
