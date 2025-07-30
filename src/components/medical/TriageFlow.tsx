@@ -12,12 +12,25 @@ import {
   Play,
   Pause
 } from "lucide-react";
+import VoiceAnalysisModal from "./VoiceAnalysisModal";
+import FacialTelemetryModal from "./FacialTelemetryModal";
+import AnamnesisModal from "./AnamnesisModal";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
 
 const TriageFlow = () => {
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
-  const [isRecording, setIsRecording] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(["preparation"]));
+  
+  // Modal states
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showFacialModal, setShowFacialModal] = useState(false);
+  const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
+  
+  // Analysis results
+  const [voiceResult, setVoiceResult] = useState<any>(null);
+  const [facialResult, setFacialResult] = useState<any>(null);
+  const [anamnesisResult, setAnamnesisResult] = useState<any>(null);
 
   const steps = [
     {
@@ -59,17 +72,40 @@ const TriageFlow = () => {
 
   const handleStartStep = (step: TriageStep) => {
     setCurrentStep(step);
+    
+    // Open appropriate modal based on step
     if (step === "voice-analysis") {
-      setIsRecording(true);
+      setShowVoiceModal(true);
+    } else if (step === "visual-assessment") {
+      setShowFacialModal(true);
+    } else if (step === "anamnesis") {
+      setShowAnamnesisModal(true);
+    }
+  };
+
+  const handleStepComplete = (stepId: string, result: any) => {
+    // Mark step as completed
+    setCompletedSteps(prev => new Set(prev).add(stepId));
+    
+    // Store results
+    if (stepId === "voice-analysis") {
+      setVoiceResult(result);
+    } else if (stepId === "visual-assessment") {
+      setFacialResult(result);
+    } else if (stepId === "anamnesis") {
+      setAnamnesisResult(result);
+    }
+    
+    // Progress to next step
+    const stepIndex = steps.findIndex(s => s.id === stepId);
+    if (stepIndex < steps.length - 1) {
+      setCurrentStep(steps[stepIndex + 1].id as TriageStep);
     }
   };
 
   const getStepStatus = (stepId: string) => {
-    const stepIndex = steps.findIndex(s => s.id === stepId);
-    const currentIndex = steps.findIndex(s => s.id === currentStep);
-    
-    if (stepIndex < currentIndex) return "completed";
-    if (stepIndex === currentIndex) return "active";
+    if (completedSteps.has(stepId)) return "completed";
+    if (stepId === currentStep) return "active";
     return "pending";
   };
 
@@ -115,31 +151,10 @@ const TriageFlow = () => {
                   {status === "active" && (
                     <Button 
                       size="sm" 
-                      variant={step.id === "voice-analysis" && isRecording ? "destructive" : "default"}
-                      onClick={() => {
-                        if (step.id === "voice-analysis") {
-                          setIsRecording(!isRecording);
-                        }
-                      }}
+                      onClick={() => handleStartStep(step.id as TriageStep)}
                     >
-                      {step.id === "voice-analysis" ? (
-                        isRecording ? (
-                          <>
-                            <Pause className="h-4 w-4 mr-2" />
-                            Pausar
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Iniciar
-                          </>
-                        )
-                      ) : (
-                        <>
-                          <ArrowRight className="h-4 w-4 mr-2" />
-                          Próximo
-                        </>
-                      )}
+                      <Play className="h-4 w-4 mr-2" />
+                      Iniciar
                     </Button>
                   )}
                   
