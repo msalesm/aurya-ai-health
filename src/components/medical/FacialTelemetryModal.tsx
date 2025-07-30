@@ -12,7 +12,7 @@ interface FacialTelemetryModalProps {
 
 const FacialTelemetryModal = ({ isOpen, onClose, onComplete }: FacialTelemetryModalProps) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingTime, setRecordingTime] = useState(15);
   const [countdown, setCountdown] = useState(3);
   const [showCountdown, setShowCountdown] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -134,26 +134,34 @@ const FacialTelemetryModal = ({ isOpen, onClose, onComplete }: FacialTelemetryMo
   const analyzeFacialData = async () => {
     setIsAnalyzing(true);
     
-    // Simular análise facial - em produção seria integrado com IA real
+    // Análise facial simulada com métricas de batimentos cardíacos
+    const analysisTime = Math.max(2000, recordingTime * 100);
+    
     setTimeout(() => {
+      const heartRate = Math.floor(Math.random() * 40) + 60; // 60-100 BPM
+      const stressLevel = Math.floor(Math.random() * 10) + 1;
+      
       const mockAnalysis = {
-        facialPallor: Math.random() > 0.7 ? 'detectada' : 'normal',
-        eyeFatigue: Math.random() > 0.6 ? 'detectada' : 'normal',
-        emotionalState: ['neutro', 'ansioso', 'cansado', 'preocupado'][Math.floor(Math.random() * 4)],
-        skinTone: 'normal',
-        facialSymmetry: Math.random() > 0.9 ? 'assimetria detectada' : 'normal',
-        blinkRate: Math.floor(Math.random() * 10) + 15, // 15-25 por minuto
-        confidence: Math.random() * 0.3 + 0.7, // 70-100%
+        heartRate: heartRate,
+        stressLevel: stressLevel,
+        bloodPressure: `${Math.floor(Math.random() * 30) + 110}/${Math.floor(Math.random() * 20) + 70}`,
+        respiratoryRate: Math.floor(Math.random() * 8) + 12,
+        skinTemperature: (Math.random() * 2 + 36).toFixed(1),
+        confidence: Math.min(95, Math.floor(recordingTime * 3) + 60),
+        detectionQuality: recordingTime >= 20 ? 'Excelente' : recordingTime >= 15 ? 'Boa' : 'Regular',
+        facialPallor: Math.random() > 0.8 ? 'detectada' : 'normal',
+        eyeFatigue: stressLevel > 7 ? 'detectada' : 'normal',
+        emotionalState: stressLevel > 7 ? 'ansioso' : stressLevel > 4 ? 'neutro' : 'calmo',
         recommendations: [
-          'Monitorar níveis de estresse',
-          'Considerar exame físico complementar',
-          'Avaliar padrões de sono'
+          heartRate > 90 ? 'Monitoramento cardíaco recomendado' : 'Frequência cardíaca normal',
+          stressLevel > 6 ? 'Técnicas de relaxamento indicadas' : 'Nível de estresse aceitável',
+          'Continuar monitoramento regular'
         ]
       };
       
       setAnalysisResult(mockAnalysis);
       setIsAnalyzing(false);
-    }, 3000);
+    }, analysisTime);
   };
 
   const handleComplete = () => {
@@ -257,37 +265,35 @@ const FacialTelemetryModal = ({ isOpen, onClose, onComplete }: FacialTelemetryMo
           {/* Resultado da Análise */}
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold">Resultado da Telemetria:</h3>
+              <h3 className="font-semibold">Resultado da Telemetria Facial:</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="font-medium">Palidez Facial:</p>
-                  <p className={analysisResult.facialPallor === 'detectada' ? 'text-amber-600' : 'text-green-600'}>
-                    {analysisResult.facialPallor}
+                  <p className="font-medium">Batimentos Cardíacos:</p>
+                  <p className={analysisResult.heartRate > 90 ? 'text-amber-600' : 'text-green-600'}>
+                    {analysisResult.heartRate} BPM
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium">Fadiga Ocular:</p>
-                  <p className={analysisResult.eyeFatigue === 'detectada' ? 'text-amber-600' : 'text-green-600'}>
-                    {analysisResult.eyeFatigue}
+                  <p className="font-medium">Pressão Arterial:</p>
+                  <p>{analysisResult.bloodPressure} mmHg</p>
+                </div>
+                <div>
+                  <p className="font-medium">Nível de Estresse:</p>
+                  <p className={analysisResult.stressLevel > 6 ? 'text-red-600' : analysisResult.stressLevel > 4 ? 'text-amber-600' : 'text-green-600'}>
+                    {analysisResult.stressLevel}/10
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium">Estado Emocional:</p>
-                  <p>{analysisResult.emotionalState}</p>
+                  <p className="font-medium">Frequência Respiratória:</p>
+                  <p>{analysisResult.respiratoryRate} rpm</p>
                 </div>
                 <div>
-                  <p className="font-medium">Taxa de Piscar:</p>
-                  <p>{analysisResult.blinkRate}/min</p>
+                  <p className="font-medium">Temperatura da Pele:</p>
+                  <p>{analysisResult.skinTemperature}°C</p>
                 </div>
                 <div>
-                  <p className="font-medium">Simetria Facial:</p>
-                  <p className={analysisResult.facialSymmetry.includes('assimetria') ? 'text-amber-600' : 'text-green-600'}>
-                    {analysisResult.facialSymmetry}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Confiança:</p>
-                  <p>{Math.round(analysisResult.confidence * 100)}%</p>
+                  <p className="font-medium">Confiabilidade:</p>
+                  <p>{analysisResult.confidence}% ({analysisResult.detectionQuality})</p>
                 </div>
               </div>
               

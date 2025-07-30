@@ -15,6 +15,7 @@ import {
 import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import FacialTelemetryModal from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
+import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
 
@@ -26,11 +27,10 @@ const TriageFlow = () => {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
+  const [showClinicalModal, setShowClinicalModal] = useState(false);
   
-  // Analysis results
-  const [voiceResult, setVoiceResult] = useState<any>(null);
-  const [facialResult, setFacialResult] = useState<any>(null);
-  const [anamnesisResult, setAnamnesisResult] = useState<any>(null);
+  // Analysis results storage
+  const [stepResults, setStepResults] = useState<any>({});
 
   const steps = [
     {
@@ -74,12 +74,19 @@ const TriageFlow = () => {
     setCurrentStep(step);
     
     // Open appropriate modal based on step
-    if (step === "voice-analysis") {
-      setShowVoiceModal(true);
-    } else if (step === "visual-assessment") {
-      setShowFacialModal(true);
-    } else if (step === "anamnesis") {
-      setShowAnamnesisModal(true);
+    switch (step) {
+      case "voice-analysis":
+        setShowVoiceModal(true);
+        break;
+      case "visual-assessment":
+        setShowFacialModal(true);
+        break;
+      case "anamnesis":
+        setShowAnamnesisModal(true);
+        break;
+      case "analysis":
+        setShowClinicalModal(true);
+        break;
     }
   };
 
@@ -88,13 +95,12 @@ const TriageFlow = () => {
     setCompletedSteps(prev => new Set(prev).add(stepId));
     
     // Store results
-    if (stepId === "voice-analysis") {
-      setVoiceResult(result);
-    } else if (stepId === "visual-assessment") {
-      setFacialResult(result);
-    } else if (stepId === "anamnesis") {
-      setAnamnesisResult(result);
-    }
+    setStepResults(prev => ({
+      ...prev,
+      [stepId === "voice-analysis" ? "voice" : 
+       stepId === "visual-assessment" ? "facial" : 
+       stepId === "anamnesis" ? "anamnesis" : stepId]: result
+    }));
     
     // Progress to next step
     const stepIndex = steps.findIndex(s => s.id === stepId);
@@ -158,7 +164,7 @@ const TriageFlow = () => {
                     </Button>
                   )}
                   
-                  {status === "pending" && index === steps.findIndex(s => s.id === currentStep) + 1 && (
+                   {status === "pending" && index === steps.findIndex(s => s.id === currentStep) + 1 && (
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -166,6 +172,16 @@ const TriageFlow = () => {
                     >
                       <Play className="h-4 w-4 mr-2" />
                       Iniciar
+                    </Button>
+                  )}
+                  
+                  {step.id === "analysis" && completedSteps.size >= 4 && (
+                    <Button 
+                      size="sm"
+                      onClick={() => handleStartStep(step.id as TriageStep)}
+                    >
+                      <Brain className="h-4 w-4 mr-2" />
+                      Ver Análise
                     </Button>
                   )}
                 </div>
@@ -193,6 +209,14 @@ const TriageFlow = () => {
             isOpen={showAnamnesisModal}
             onClose={() => setShowAnamnesisModal(false)}
             onComplete={(result) => handleStepComplete("anamnesis", result)}
+          />
+
+          <ClinicalAnalysisModal
+            isOpen={showClinicalModal}
+            onClose={() => setShowClinicalModal(false)}
+            voiceAnalysis={stepResults.voice}
+            facialAnalysis={stepResults.facial}
+            anamnesisResults={stepResults.anamnesis}
           />
     </div>
   );
