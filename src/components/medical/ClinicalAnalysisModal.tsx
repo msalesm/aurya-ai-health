@@ -51,9 +51,9 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     let urgencyScore = 0;
     
     if (anamnesisResults?.urgency?.score) urgencyScore += anamnesisResults.urgency.score;
-    if (voiceAnalysis?.stress_indicators?.stress_level > 7) urgencyScore += 3;
-    if (facialAnalysis?.stressLevel > 7) urgencyScore += 2;
-    if (facialAnalysis?.heartRate > 100) urgencyScore += 2;
+    if (voiceAnalysis?.stress_indicators?.stress_level && voiceAnalysis.stress_indicators.stress_level > 7) urgencyScore += 3;
+    if (facialAnalysis?.stressLevel && facialAnalysis.stressLevel > 7) urgencyScore += 2;
+    if (facialAnalysis?.heartRate && facialAnalysis.heartRate > 100) urgencyScore += 2;
     
     if (urgencyScore >= 8) return { level: 'Crítica', color: 'destructive', action: 'Emergência médica' };
     if (urgencyScore >= 5) return { level: 'Alta', color: 'warning', action: 'Atendimento urgente' };
@@ -65,7 +65,7 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     const symptoms = [];
     
     if (anamnesisResults?.symptoms) symptoms.push(...anamnesisResults.symptoms);
-    if (voiceAnalysis?.emotional_tone?.primary_emotion !== 'neutral') {
+    if (voiceAnalysis?.emotional_tone?.primary_emotion && voiceAnalysis.emotional_tone.primary_emotion !== 'neutral') {
       symptoms.push(`Estado emocional: ${voiceAnalysis.emotional_tone.primary_emotion}`);
     }
     if (facialAnalysis?.stressLevel > 5) symptoms.push('Sinais de estresse detectados');
