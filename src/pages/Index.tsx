@@ -7,6 +7,9 @@ import AnamnesisChat from "@/components/medical/AnamnesisChat";
 import DiagnosticResults from "@/components/medical/DiagnosticResults";
 import HealthDataDashboard from "@/components/medical/HealthDataDashboard";
 import AIIntegrationStatus from "@/components/medical/AIIntegrationStatus";
+import LiveStatistics from "@/components/medical/LiveStatistics";
+import PricingSection from "@/components/medical/PricingSection";
+import TestimonialsSection from "@/components/medical/TestimonialsSection";
 import heroImage from "@/assets/medical-hero.jpg";
 
 const Index = () => {
@@ -23,6 +26,11 @@ const Index = () => {
         <div className="relative z-10 container mx-auto px-6 h-full flex items-center">
           <TriageHeader />
         </div>
+      </div>
+
+      {/* Live Statistics */}
+      <div className="container mx-auto px-6">
+        <LiveStatistics />
       </div>
 
       {/* Main Content */}
@@ -67,6 +75,12 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Testimonials Section */}
+      <TestimonialsSection />
+
+      {/* Pricing Section */}
+      <PricingSection />
     </div>
   );
 };
