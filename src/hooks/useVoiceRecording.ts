@@ -86,11 +86,11 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     setError(null);
 
     try {
-      const response = await supabase.functions.invoke('voice-analysis', {
+      const response = await supabase.functions.invoke('hybrid-voice-analysis', {
         body: {
           audioData: audioData,
-          userId: 'demo-user-id', // Em produção seria o ID real do usuário
-          consultationId: 'demo-consultation-id'
+          userId: 'demo-user-id',
+          preferredProvider: 'hybrid'
         }
       });
 
@@ -98,6 +98,11 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
         throw new Error(response.error.message || 'Erro na análise de voz');
       }
 
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Erro desconhecido na análise');
+      }
+
+      console.log('Análise híbrida de voz concluída:', response.data.analysis);
       return response.data;
 
     } catch (err) {

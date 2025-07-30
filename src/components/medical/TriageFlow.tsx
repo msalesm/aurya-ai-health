@@ -13,7 +13,7 @@ import {
   Pause
 } from "lucide-react";
 import VoiceAnalysisModal from "./VoiceAnalysisModal";
-import FacialTelemetryModal from "./FacialTelemetryModal";
+import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 
@@ -42,15 +42,15 @@ const TriageFlow = () => {
     },
     {
       id: "voice-analysis",
-      title: "Análise de Voz",
-      description: "Análise de padrões respiratórios e emocionais",
+      title: "Análise de Voz Híbrida",
+      description: "OpenAI Whisper + Google Speech + Análise emocional",
       icon: <Mic className="h-6 w-6" />,
       status: currentStep === "voice-analysis" ? "active" : "pending"
     },
     {
       id: "visual-assessment",
-      title: "Avaliação Visual",
-      description: "Análise facial e sinais físicos visíveis",
+      title: "Telemetria Facial Google",
+      description: "Google Vision API + detecção PPG de batimentos",
       icon: <Video className="h-6 w-6" />,
       status: "pending"
     },
