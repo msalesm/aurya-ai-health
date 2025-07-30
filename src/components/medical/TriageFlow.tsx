@@ -175,33 +175,25 @@ const TriageFlow = () => {
         </CardContent>
       </Card>
       
-      {currentStep === "voice-analysis" && (
-        <Card className="shadow-card bg-gradient-subtle">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="flex items-center justify-center">
-                <div className={`
-                  p-6 rounded-full 
-                  ${isRecording ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-muted text-muted-foreground"}
-                `}>
-                  <Mic className="h-8 w-8" />
-                </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">
-                  {isRecording ? "Gravando sua voz..." : "Análise de Voz Pausada"}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  {isRecording 
-                    ? "Fale naturalmente sobre como você está se sentindo. A IA analisará padrões de voz, respiração e emoção."
-                    : "Clique em 'Iniciar' para continuar a análise de voz."
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          
+          {/* Modals */}
+          <VoiceAnalysisModal 
+            isOpen={showVoiceModal}
+            onClose={() => setShowVoiceModal(false)}
+            onComplete={(result) => handleStepComplete("voice-analysis", result)}
+          />
+          
+          <FacialTelemetryModal 
+            isOpen={showFacialModal}
+            onClose={() => setShowFacialModal(false)}
+            onComplete={(result) => handleStepComplete("visual-assessment", result)}
+          />
+          
+          <AnamnesisModal 
+            isOpen={showAnamnesisModal}
+            onClose={() => setShowAnamnesisModal(false)}
+            onComplete={(result) => handleStepComplete("anamnesis", result)}
+          />
     </div>
   );
 };

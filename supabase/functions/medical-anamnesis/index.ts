@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, userId, consultationId, conversationHistory = [] } = await req.json();
+    const { message, userId, consultationId, conversationHistory = [], isStructuredAnalysis = false } = await req.json();
 
     if (!message || !userId) {
       throw new Error('Message and userId are required');
@@ -27,27 +27,41 @@ serve(async (req) => {
 
     console.log('Processing medical anamnesis for user:', userId);
 
-    // Contexto médico especializado para triagem
-    const systemPrompt = `Você é uma IA médica especializada em anamnese e triagem clínica. Sua função é:
+    // Análise estruturada baseada em questionário objetivo
+    if (isStructuredAnalysis) {
+      try {
+        const answers = JSON.parse(message.split('Análise estruturada baseada em respostas objetivas: ')[1]);
+        
+        const analysis = {
+          urgencyLevel: calculateStructuredUrgency(answers),
+          symptoms: extractStructuredSymptoms(answers), 
+          recommendations: generateStructuredRecommendations(answers),
+          response: generateStructuredSummary(answers)
+        };
+        
+        return new Response(JSON.stringify(analysis), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Error in structured analysis:', error);
+      }
+    }
 
-1. Conduzir uma anamnese completa e empática
-2. Fazer perguntas direcionadas baseadas nas respostas do paciente
-3. Identificar sinais de alerta e urgência médica
-4. Classificar o nível de urgência (baixa, média, alta, crítica)
-5. Sugerir encaminhamentos apropriados
+    // Contexto médico para chat rápido e objetivo
+    const systemPrompt = `Você é um assistente médico para triagem rápida. SUAS RESPOSTAS DEVEM SER:
 
-DIRETRIZES IMPORTANTES:
-- Seja empático e tranquilizador
-- Faça uma pergunta por vez, clara e objetiva
-- Adapte a linguagem ao nível de compreensão do paciente
-- Identifique sintomas de alarme (dor no peito, dispneia severa, alterações neurológicas, etc.)
-- Nunca diagnostique - apenas colete informações e classifique urgência
-- Se detectar urgência alta/crítica, recomende buscar atendimento imediato
+OBRIGATÓRIO:
+- Máximo 2-3 perguntas objetivas
+- Perguntas de SIM/NÃO sempre que possível  
+- Foque apenas em sintomas críticos de urgência
+- Seja DIRETO e CONCISO
 
-FORMATO DE RESPOSTA:
-- Responda de forma natural e conversacional
-- Inclua uma classificação de urgência quando apropriado
-- Sugira próximos passos quando a anamnese estiver completa`;
+EXEMPLO CORRETO:
+"1. Você sente dor no peito? (SIM/NÃO)
+2. Há dificuldade para respirar? (SIM/NÃO) 
+3. Os sintomas começaram há menos de 2 horas? (SIM/NÃO)"
+
+NÃO faça perguntas abertas. NÃO seja prolixo. FOQUE na urgência.`;
 
     // Preparar histórico da conversa para o OpenAI
     const messages = [
@@ -70,7 +84,7 @@ FORMATO DE RESPOSTA:
         model: 'gpt-4o',
         messages: messages,
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 150,
         presence_penalty: 0.1,
         frequency_penalty: 0.1,
       }),
