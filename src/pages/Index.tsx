@@ -10,13 +10,21 @@ import AIIntegrationStatus from "@/components/medical/AIIntegrationStatus";
 import LiveStatistics from "@/components/medical/LiveStatistics";
 import PricingSection from "@/components/medical/PricingSection";
 import TestimonialsSection from "@/components/medical/TestimonialsSection";
+import MedicalDisclaimer from "@/components/medical/MedicalDisclaimer";
+import HealthScore from "@/components/medical/HealthScore";
+import ProgressTracker from "@/components/medical/ProgressTracker";
+import UpgradePrompt from "@/components/medical/UpgradePrompt";
 import heroImage from "@/assets/medical-hero.jpg";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("triage");
+  const [consultationsUsed, setConsultationsUsed] = useState(2);
+  const [currentStep, setCurrentStep] = useState(1);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {/* Medical Disclaimer */}
+      <MedicalDisclaimer />
       {/* Hero Section */}
       <div 
         className="relative h-64 bg-cover bg-center mb-8"
@@ -45,12 +53,17 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="triage" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <UpgradePrompt consultationsUsed={consultationsUsed} />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-2">
                 <TriageFlow />
               </div>
               <div>
                 <VitalSignsCard />
+              </div>
+              <div className="space-y-4">
+                <HealthScore consultationsCompleted={consultationsUsed} />
+                <ProgressTracker currentStep={currentStep} />
               </div>
             </div>
           </TabsContent>
