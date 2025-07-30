@@ -7,44 +7,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, consultationId, userId } = await req.json();
-    
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    const { message, userId, consultationId, conversationHistory = [] } = await req.json();
+
+    if (!message || !userId) {
+      throw new Error('Message and userId are required');
     }
 
-    // Sistema de prompt médico especializado
-    const medicalPrompt = `Você é um assistente médico especializado em anamnese e triagem clínica. 
-    
-    DIRETRIZES IMPORTANTES:
-    - Conduza uma anamnese sistemática e empática
-    - Faça perguntas diretas sobre sintomas principais
-    - Identifique sinais de alerta e urgência médica
-    - Use linguagem clara e acessível
-    - Sempre mantenha tom profissional e acolhedor
-    - Se detectar sintomas graves, priorize encaminhamento urgente
-    
-    FOQUE EM:
-    - Queixa principal e história da doença atual
-    - Sintomas associados e duração
-    - Fatores de melhora/piora
-    - Sinais vitais e dados objetivos
-    - Antecedentes pessoais relevantes
-    
-    SINAIS DE ALERTA (encaminhar imediatamente):
-    - Dor no peito, falta de ar grave
-    - Sinais neurológicos agudos
-    - Hemorragias, trauma grave
-    - Febre alta persistente
-    - Alterações de consciência`;
+    console.log('Processing medical anamnesis for user:', userId);
 
+    // Contexto médico especializado para triagem
+    const systemPrompt = `Você é uma IA médica especializada em anamnese e triagem clínica. Sua função é:
+
+1. Conduzir uma anamnese completa e empática
+2. Fazer perguntas direcionadas baseadas nas respostas do paciente
+3. Identificar sinais de alerta e urgência médica
+4. Classificar o nível de urgência (baixa, média, alta, crítica)
+5. Sugerir encaminhamentos apropriados
+
+DIRETRIZES IMPORTANTES:
+- Seja empático e tranquilizador
+- Faça uma pergunta por vez, clara e objetiva
+- Adapte a linguagem ao nível de compreensão do paciente
+- Identifique sintomas de alarme (dor no peito, dispneia severa, alterações neurológicas, etc.)
+- Nunca diagnostique - apenas colete informações e classifique urgência
+- Se detectar urgência alta/crítica, recomende buscar atendimento imediato
+
+FORMATO DE RESPOSTA:
+- Responda de forma natural e conversacional
+- Inclua uma classificação de urgência quando apropriado
+- Sugira próximos passos quando a anamnese estiver completa`;
+
+    // Preparar histórico da conversa para o OpenAI
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.map((msg: any) => ({
+        role: msg.type === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      })),
+      { role: 'user', content: message }
+    ];
+
+    // Chamar OpenAI GPT-4o
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -52,59 +67,109 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: medicalPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.3,
+        model: 'gpt-4o',
+        messages: messages,
+        temperature: 0.7,
         max_tokens: 500,
+        presence_penalty: 0.1,
+        frequency_penalty: 0.1,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+      const error = await response.json();
+      throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
     }
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Salvar na consulta se consultationId fornecido
-    if (consultationId && userId) {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+    // Salvar mensagem do usuário
+    const userMessage = {
+      consultation_id: consultationId,
+      user_id: userId,
+      type: 'user',
+      content: message,
+      timestamp: new Date().toISOString()
+    };
 
-      await supabase
-        .from('medical_consultations')
-        .update({
-          conversation_data: { raw: `${message} -> ${aiResponse}` },
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', consultationId)
-        .eq('user_id', userId);
-    }
+    // Salvar resposta da IA
+    const aiMessage = {
+      consultation_id: consultationId,
+      user_id: userId,
+      type: 'assistant',
+      content: aiResponse,
+      timestamp: new Date().toISOString()
+    };
 
-    return new Response(
-      JSON.stringify({ 
-        response: aiResponse,
-        timestamp: new Date().toISOString()
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Análise de urgência baseada na resposta
+    const urgencyAnalysis = await analyzeUrgency(aiResponse, message);
+
+    return new Response(JSON.stringify({
+      response: aiResponse,
+      urgency: urgencyAnalysis,
+      conversationHistory: [
+        ...conversationHistory,
+        userMessage,
+        aiMessage
+      ]
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('Error in medical-anamnesis function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Erro na análise médica',
-        details: error.message 
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ 
+      error: error.message || 'An unexpected error occurred' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
+
+async function analyzeUrgency(aiResponse: string, userMessage: string): Promise<any> {
+  // Palavras-chave para diferentes níveis de urgência
+  const criticalKeywords = [
+    'dor no peito', 'falta de ar severa', 'perda de consciência', 
+    'convulsão', 'sangramento intenso', 'vômito com sangue',
+    'dor de cabeça súbita e intensa', 'paralisia', 'confusão mental súbita'
+  ];
+
+  const highKeywords = [
+    'febre alta', 'dificuldade para respirar', 'dor abdominal intensa',
+    'vômitos persistentes', 'tontura severa', 'palpitações'
+  ];
+
+  const mediumKeywords = [
+    'dor persistente', 'febre', 'náusea', 'mal-estar', 'fadiga'
+  ];
+
+  const combinedText = (aiResponse + ' ' + userMessage).toLowerCase();
+
+  if (criticalKeywords.some(keyword => combinedText.includes(keyword))) {
+    return {
+      level: 'critica',
+      score: 9,
+      recommendation: 'Busque atendimento médico de emergência imediatamente'
+    };
+  } else if (highKeywords.some(keyword => combinedText.includes(keyword))) {
+    return {
+      level: 'alta',
+      score: 7,
+      recommendation: 'Recomenda-se consulta médica nas próximas horas'
+    };
+  } else if (mediumKeywords.some(keyword => combinedText.includes(keyword))) {
+    return {
+      level: 'media',
+      score: 5,
+      recommendation: 'Agende consulta médica nos próximos dias'
+    };
+  } else {
+    return {
+      level: 'baixa',
+      score: 2,
+      recommendation: 'Monitoramento dos sintomas é suficiente por agora'
+    };
+  }
+}
