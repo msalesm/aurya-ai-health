@@ -189,13 +189,13 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // CABEÇALHO COM LOGO DA EMPRESA
-      doc.setFontSize(20);
+      // CABEÇALHO COM LOGO DA AURYA
+      doc.setFontSize(24);
       doc.setTextColor(41, 128, 185); // Azul corporativo
-      doc.text('MEDTECH AI', 20, 20);
+      doc.text('AURYA', 20, 22);
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text('Sistema Integrado de Triagem Inteligente', 20, 28);
+      doc.text('Triagem Médica Inteligente com IA', 20, 30);
       
       // Linha separadora
       doc.setDrawColor(41, 128, 185);
@@ -282,11 +282,22 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
-      doc.text('Assinatura Digital Eletrônica', 20, footerY + 8);
-      doc.setFontSize(8);
-      doc.text(`Dr. Alexandre Santos - CRM: 12345-SP`, 20, footerY + 16);
-      doc.text(`Responsável Técnico - Telemedicina`, 20, footerY + 22);
-      doc.text(`Documento gerado automaticamente pelo sistema MedTech AI`, 20, footerY + 28);
+      doc.setFontSize(12);
+      doc.setTextColor(41, 128, 185);
+      doc.text('ASSINATURA DIGITAL AURYA', 20, footerY + 10);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Dr. Sistema Aurya | CRM: 654321-SP', 20, footerY + 18);
+      doc.text('Especialista em Medicina Digital e Telemedicina', 20, footerY + 26);
+      
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Relatório validado digitalmente pela Aurya em: ${new Date().toLocaleString('pt-BR')}`, 20, footerY + 34);
+      doc.text('QR Code de verificação: [Código único do relatório]', 20, footerY + 42);
+      
+      // QR code placeholder
+      doc.setDrawColor(0, 0, 0);
+      doc.rect(150, footerY + 15, 25, 25);
       
       // QR Code simulado (representação textual)
       doc.setFontSize(8);
