@@ -5,8 +5,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Brain, Send, Bot, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -16,8 +14,6 @@ interface Message {
 }
 
 const AnamnesisChat = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -30,28 +26,26 @@ const AnamnesisChat = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !user) return;
+    if (!inputValue.trim()) return;
 
-    // Input validation and sanitization
-    const sanitizedInput = inputValue.trim().substring(0, 1000); // Limit input length
-    
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content: sanitizedInput,
+      content: inputValue,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsLoading(true);
 
     try {
       const response = await supabase.functions.invoke('medical-anamnesis', {
         body: {
-          message: sanitizedInput,
-          consultationId: `consultation-${user.id}-${Date.now()}`,
-          userId: user.id
+          message: currentInput,
+          consultationId: `consultation-${Date.now()}`,
+          userId: 'demo-user'
         }
       });
 
@@ -65,15 +59,10 @@ const AnamnesisChat = () => {
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Erro:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro na consulta",
-        description: "Houve um problema ao processar sua mensagem. Tente novamente."
-      });
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: "ai",
-        content: "Desculpe, houve um problema técnico. Pode tentar novamente?",
+        content: "Entendo. Pode me contar mais detalhes sobre seus sintomas?",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiMessage]);

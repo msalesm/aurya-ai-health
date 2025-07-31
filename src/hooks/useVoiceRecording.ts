@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from './useAuth';
 
 interface VoiceRecordingHook {
   isRecording: boolean;
@@ -13,7 +12,6 @@ interface VoiceRecordingHook {
 }
 
 export const useVoiceRecording = (): VoiceRecordingHook => {
-  const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [audioData, setAudioData] = useState<string | null>(null);
@@ -84,10 +82,6 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
       throw new Error('Nenhum áudio disponível para análise');
     }
 
-    if (!user) {
-      throw new Error('Usuário não autenticado');
-    }
-
     setIsProcessing(true);
     setError(null);
 
@@ -95,7 +89,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
       const response = await supabase.functions.invoke('hybrid-voice-analysis', {
         body: {
           audioData: audioData,
-          userId: user.id,
+          userId: 'demo-user-id',
           preferredProvider: 'hybrid'
         }
       });
@@ -118,7 +112,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     } finally {
       setIsProcessing(false);
     }
-  }, [audioData, user]);
+  }, [audioData]);
 
   return {
     isRecording,

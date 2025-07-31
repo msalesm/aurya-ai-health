@@ -15,8 +15,6 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
 
 interface HealthData {
   heart_rate?: any;
@@ -29,27 +27,16 @@ interface HealthData {
 }
 
 const HealthDataDashboard = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
   const [healthData, setHealthData] = useState<HealthData>({});
   const [isLoading, setIsLoading] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   const fetchHealthData = async () => {
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Erro de autenticação",
-        description: "Você precisa estar logado para acessar os dados de saúde."
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
       const response = await supabase.functions.invoke('google-health-data', {
         body: {
-          userId: user.id,
+          userId: 'demo-user', // Em produção seria o ID real do usuário
           dataTypes: ['heart_rate', 'steps', 'sleep', 'blood_pressure', 'activity', 'stress']
         }
       });
