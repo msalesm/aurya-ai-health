@@ -16,6 +16,7 @@ import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
+import { OnboardingGuide } from "./OnboardingGuide";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
 
@@ -28,6 +29,8 @@ const TriageFlow = () => {
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
   const [showClinicalModal, setShowClinicalModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<string>("");
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
@@ -42,22 +45,22 @@ const TriageFlow = () => {
     },
     {
       id: "voice-analysis",
-      title: "Análise de Voz Híbrida",
-      description: "OpenAI Whisper + Google Speech + Análise emocional",
+      title: "Análise de Voz Inteligente",
+      description: "Análise avançada de padrões vocais e respiratórios",
       icon: <Mic className="h-6 w-6" />,
       status: currentStep === "voice-analysis" ? "active" : "pending"
     },
     {
       id: "visual-assessment",
-      title: "Google Vision API",
-      description: "Análise facial completa com IA do Google Cloud",
+      title: "Análise Facial Avançada",
+      description: "Detecção de sinais vitais através de visão computacional",
       icon: <Video className="h-6 w-6" />,
       status: "pending"
     },
     {
       id: "anamnesis",
       title: "Anamnese com IA",
-      description: "Conversa direcionada sobre sintomas e histórico",
+      description: "Conversa inteligente sobre sintomas e histórico médico",
       icon: <Brain className="h-6 w-6" />,
       status: "pending"
     },
@@ -71,22 +74,31 @@ const TriageFlow = () => {
   ];
 
   const handleStartStep = (step: TriageStep) => {
+    // Show onboarding guide first for medical tests
+    if (step === "voice-analysis" || step === "visual-assessment" || step === "anamnesis") {
+      setOnboardingStep(step);
+      setShowOnboarding(true);
+      return;
+    }
+    
     setCurrentStep(step);
     
     // Open appropriate modal based on step
-    switch (step) {
-      case "voice-analysis":
-        setShowVoiceModal(true);
-        break;
-      case "visual-assessment":
-        setShowFacialModal(true);
-        break;
-      case "anamnesis":
-        setShowAnamnesisModal(true);
-        break;
-      case "analysis":
-        setShowClinicalModal(true);
-        break;
+    if (step === "analysis") {
+      setShowClinicalModal(true);
+    }
+  };
+
+  const handleOnboardingStart = (stepId: string) => {
+    setCurrentStep(stepId as TriageStep);
+    
+    // Open appropriate modal after onboarding
+    if (stepId === "voice-analysis") {
+      setShowVoiceModal(true);
+    } else if (stepId === "visual-assessment") {
+      setShowFacialModal(true);
+    } else if (stepId === "anamnesis") {
+      setShowAnamnesisModal(true);
     }
   };
 
@@ -207,6 +219,13 @@ const TriageFlow = () => {
       
           
           {/* Modals */}
+          <OnboardingGuide
+            isOpen={showOnboarding}
+            onClose={() => setShowOnboarding(false)}
+            onStartStep={handleOnboardingStart}
+            currentStep={onboardingStep}
+          />
+
           <VoiceAnalysisModal 
             isOpen={showVoiceModal}
             onClose={() => setShowVoiceModal(false)}

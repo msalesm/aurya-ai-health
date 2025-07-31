@@ -82,7 +82,7 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mic className="h-5 w-5 text-primary" />
-            Análise de Voz
+            Análise de Voz Inteligente
           </DialogTitle>
         </DialogHeader>
 
@@ -179,7 +179,7 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           {/* Instruções */}
           <div className="text-xs text-muted-foreground text-center">
             Fale naturalmente sobre como você está se sentindo. 
-            A IA analisará padrões de voz, respiração e emoção.
+            Nossa tecnologia analisará padrões de voz, respiração e estado emocional.
           </div>
         </div>
       </DialogContent>

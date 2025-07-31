@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { FileText, Download, AlertTriangle, CheckCircle } from "lucide-react";
+import { ReportPreview } from "./ReportPreview";
 
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
+  const [showReportPreview, setShowReportPreview] = useState(false);
 
   const generateClinicalAnalysis = () => {
     setIsAnalyzing(true);
@@ -134,36 +136,48 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     return 'Parcial';
   };
 
-  const generatePDFReport = async () => {
+  const generatePDFReport = async (doctorData: any, patientData: any) => {
     if (!clinicalReport) return;
     
     try {
-      // Importar jsPDF dinamicamente
+      // Importar jsPDF dinamicamente para gerar PDF profissional
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // Cabeçalho
+      // Cabeçalho profissional
       doc.setFontSize(18);
+      doc.setTextColor(0, 100, 200);
       doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
       
+      // Dados do médico
       doc.setFontSize(12);
-      doc.text(`Paciente ID: ${clinicalReport.patientId}`, 20, 35);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 45);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Médico: ${doctorData.name}`, 20, 35);
+      doc.text(`CRM: ${doctorData.crm}`, 20, 45);
+      doc.text(`Especialidade: ${doctorData.specialty}`, 20, 55);
+      
+      // Dados do paciente
+      doc.setFontSize(14);
+      doc.text('DADOS DO PACIENTE:', 20, 75);
+      doc.setFontSize(12);
+      doc.text(`Nome: ${patientData.name}`, 20, 85);
+      doc.text(`CPF: ${patientData.cpf}`, 20, 95);
+      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 105);
       
       // Urgência
       doc.setFontSize(14);
-      doc.text('NÍVEL DE URGÊNCIA:', 20, 65);
+      doc.text('NÍVEL DE URGÊNCIA:', 20, 125);
       doc.setFontSize(12);
-      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 75);
+      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 135);
       
       // Sintomas
       doc.setFontSize(14);
-      doc.text('SINTOMAS IDENTIFICADOS:', 20, 95);
+      doc.text('SINTOMAS IDENTIFICADOS:', 20, 155);
       doc.setFontSize(10);
-      let yPos = 105;
+      let yPos = 165;
       clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
         doc.text(`• ${symptom}`, 25, yPos);
         yPos += 10;
@@ -180,14 +194,15 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
         yPos += 10;
       });
       
-      // Dados técnicos
-      yPos += 10;
+      // Assinatura
+      yPos += 20;
       doc.setFontSize(12);
-      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 20, yPos);
-      doc.text(`Qualidade dos dados: ${clinicalReport.dataQuality}`, 20, yPos + 10);
+      doc.text('____________________________', 20, yPos);
+      doc.text(`${doctorData.name}`, 20, yPos + 10);
+      doc.text(`CRM: ${doctorData.crm}`, 20, yPos + 20);
       
       // Salvar PDF
-      doc.save(`relatorio-triagem-${clinicalReport.patientId}.pdf`);
+      doc.save(`relatorio-medico-${patientData.name.replace(/\s+/g, '-')}.pdf`);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       // Fallback para JSON
@@ -345,9 +360,9 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             </Card>
 
             <div className="flex gap-2">
-              <Button onClick={generatePDFReport} variant="outline" className="flex-1">
-                <Download className="h-4 w-4 mr-2" />
-                Baixar Relatório PDF
+              <Button onClick={() => setShowReportPreview(true)} variant="outline" className="flex-1">
+                <FileText className="h-4 w-4 mr-2" />
+                Gerar Relatório Médico
               </Button>
               <Button onClick={onClose} className="flex-1">
                 Finalizar
@@ -355,6 +370,13 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             </div>
           </div>
         )}
+
+        <ReportPreview
+          isOpen={showReportPreview}
+          onClose={() => setShowReportPreview(false)}
+          clinicalReport={clinicalReport}
+          onGeneratePDF={generatePDFReport}
+        />
       </DialogContent>
     </Dialog>
   );
