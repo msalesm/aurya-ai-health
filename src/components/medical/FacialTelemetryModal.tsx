@@ -249,9 +249,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     });
   };
 
-  const continueToNextStep = () => {
-    completeTelemetry();
-  };
 
   const completeTelemetry = async () => {
     setIsRecording(false);
@@ -452,7 +449,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                 </Button>
                 {canContinue && (
                   <Button 
-                    onClick={continueToNextStep}
+                    onClick={completeTelemetry}
                     variant="outline" 
                     size="lg" 
                     className="w-full"
@@ -654,9 +651,9 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
               ) : (
                 <>
                   {canContinue && (
-                    <Button onClick={continueToNextStep} className="space-x-2">
+                    <Button onClick={completeTelemetry} className="space-x-2">
                       <ArrowRight className="h-4 w-4" />
-                      <span>Continuar para Anamnese</span>
+                      <span>Continuar para Análise de Voz</span>
                     </Button>
                   )}
                   <Button onClick={stopTelemetry} variant="outline" className="space-x-2">
