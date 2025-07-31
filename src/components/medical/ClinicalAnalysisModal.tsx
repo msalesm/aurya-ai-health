@@ -40,7 +40,11 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
         riskFactors: identifyRiskFactors(),
         recommendations: generateRecommendations(),
         confidence: calculateOverallConfidence(),
-        dataQuality: assessDataQuality()
+        dataQuality: assessDataQuality(),
+        // Incluir dados para correlação no relatório
+        voiceAnalysis,
+        facialAnalysis,
+        anamnesisResults
       };
       
       setClinicalReport(report);
