@@ -311,13 +311,14 @@ function combineEmotionalAnalysis(openAIResult: any, googleResult: any) {
 }
 
 function analyzeVocalStress(text: string) {
-  // Análise de estresse baseada no conteúdo textual
-  const stressKeywords = ['dor', 'preocupado', 'ansioso', 'nervoso', 'estresse', 'medo', 'tensão'];
-  const calmKeywords = ['calmo', 'tranquilo', 'bem', 'normal', 'relaxado'];
+  // Análise de estresse baseada no conteúdo textual E características de fala
+  const stressKeywords = ['dor', 'preocupado', 'ansioso', 'nervoso', 'estresse', 'medo', 'tensão', 'pânico', 'desespero'];
+  const calmKeywords = ['calmo', 'tranquilo', 'bem', 'normal', 'relaxado', 'sereno', 'paz'];
   
   let stressScore = 0;
   const words = text.toLowerCase().split(' ');
   
+  // Análise linguística
   words.forEach(word => {
     if (stressKeywords.some(keyword => word.includes(keyword))) {
       stressScore += 2;
@@ -327,28 +328,75 @@ function analyzeVocalStress(text: string) {
     }
   });
   
+  // Análise estrutural da fala
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const avgSentenceLength = sentences.length > 0 ? text.length / sentences.length : 0;
+  const interruptionMarkers = (text.match(/\.\.\.|,|;/g) || []).length;
+  
+  // Frases muito curtas ou interrompidas podem indicar stress
+  if (avgSentenceLength < 15) stressScore += 1;
+  if (interruptionMarkers > sentences.length * 0.3) stressScore += 1;
+  
+  // Análise de repetições (gagueira ou nervosismo)
+  const repetitions = words.filter((word, index) => 
+    index > 0 && word === words[index - 1] && word.length > 2
+  ).length;
+  
+  if (repetitions > 0) stressScore += repetitions * 0.5;
+  
+  // Calcular nível final de stress com base real
+  const finalStressLevel = Math.max(0, Math.min(10, stressScore));
+  
   return {
-    stress_level: Math.max(0, Math.min(10, stressScore + Math.random() * 3)),
-    voice_tremor: stressScore > 3,
-    speech_rate: stressScore > 5 ? 'fast' : 'normal',
-    volume_variability: Math.random() * 5,
-    indicators: stressScore > 3 ? ['linguistic_stress_markers'] : ['normal_speech_patterns']
+    stress_level: finalStressLevel,
+    voice_tremor: stressScore > 3 || repetitions > 1,
+    speech_rate: avgSentenceLength < 20 ? 'fast' : stressScore > 5 ? 'irregular' : 'normal',
+    volume_variability: Math.min(10, stressScore * 0.8 + repetitions),
+    interruption_frequency: interruptionMarkers,
+    repetition_count: repetitions,
+    sentence_fragmentation: avgSentenceLength < 15,
+    indicators: stressScore > 3 ? ['linguistic_stress_markers', 'speech_pattern_irregularities'] : ['normal_speech_patterns']
   };
 }
 
 function analyzeRespiratoryFromSpeech(text: string) {
-  // Análise respiratória baseada na estrutura do discurso
+  // Análise respiratória baseada na estrutura do discurso e padrões de fala
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const avgSentenceLength = sentences.reduce((acc, s) => acc + s.length, 0) / sentences.length;
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  const avgSentenceLength = sentences.length > 0 ? sentences.reduce((acc, s) => acc + s.length, 0) / sentences.length : 0;
+  const avgWordsPerSentence = sentences.length > 0 ? words.length / sentences.length : 0;
+  
+  // Detectar pausas e respirações baseado em pontuação e estrutura
+  const pauseMarkers = (text.match(/[,.;:]/g) || []).length;
+  const longPauses = (text.match(/\.\.\.|--/g) || []).length;
+  
+  // Análise de falta de ar baseada em indicadores linguísticos
+  const breathKeywords = ['respirar', 'ar', 'cansado', 'falta', 'sufocado', 'ofegante'];
+  const breathIndicators = words.filter(word => 
+    breathKeywords.some(keyword => word.toLowerCase().includes(keyword))
+  ).length;
+  
+  // Calcular taxa respiratória estimada
+  const estimatedBreathingRate = Math.max(12, Math.min(25, 
+    16 + (breathIndicators * 2) + (avgSentenceLength < 20 ? 3 : 0) - (avgWordsPerSentence > 8 ? 2 : 0)
+  ));
+  
+  // Detectar irregularidades
+  const irregularity = avgSentenceLength < 25 || breathIndicators > 0 || longPauses > 1;
+  const shallowBreathing = avgWordsPerSentence < 6 && sentences.length > 3;
   
   return {
-    breathing_rate: Math.floor(Math.random() * 6) + 14, // 14-20 rpm
-    irregularity_detected: avgSentenceLength < 20, // Frases curtas podem indicar falta de ar
-    shallow_breathing: sentences.length > 5 && avgSentenceLength < 30,
+    breathing_rate: Math.round(estimatedBreathingRate),
+    irregularity_detected: irregularity,
+    shallow_breathing: shallowBreathing,
+    breath_indicators_found: breathIndicators,
+    speech_effort_level: breathIndicators > 0 ? 'high' : avgSentenceLength < 20 ? 'moderate' : 'normal',
     patterns: {
-      sentence_length_avg: avgSentenceLength,
-      pause_frequency: sentences.length / text.length * 100,
-      speech_continuity: avgSentenceLength > 40 ? 'good' : 'limited'
+      sentence_length_avg: Math.round(avgSentenceLength),
+      words_per_sentence: Math.round(avgWordsPerSentence),
+      pause_frequency: Math.round(pauseMarkers / words.length * 100),
+      long_pause_count: longPauses,
+      speech_continuity: avgWordsPerSentence > 8 ? 'excellent' : avgWordsPerSentence > 5 ? 'good' : 'limited'
     }
   };
 }
@@ -360,17 +408,32 @@ function estimateAudioDuration(audioData: string): number {
 }
 
 function calculateOverallConfidence(transcription: any, emotional: any): number {
-  let confidence = 0.3; // Base
+  let confidence = 0.2; // Base reduzida para ser mais realista
   
-  if (transcription.provider === 'openai_whisper') confidence += 0.4;
-  else if (transcription.provider === 'google_speech') confidence += 0.3;
+  // Confiança da transcrição
+  if (transcription.provider === 'openai_whisper') confidence += 0.3;
+  else if (transcription.provider === 'google_speech') confidence += 0.25;
+  else confidence += 0.1; // fallback tem menor confiança
   
-  if (emotional.provider.includes('hybrid')) confidence += 0.3;
-  else if (emotional.provider.includes('openai') || emotional.provider.includes('google')) confidence += 0.2;
+  // Confiança da análise emocional
+  if (emotional.provider.includes('hybrid')) confidence += 0.25;
+  else if (emotional.provider.includes('openai') || emotional.provider.includes('google')) confidence += 0.15;
   
-  confidence += emotional.confidence * 0.2;
+  // Fator da confiança específica da análise emocional
+  confidence += emotional.confidence * 0.15;
   
-  return Math.min(0.95, confidence);
+  // Penalizar textos muito curtos (menos confiáveis)
+  if (transcription.text && transcription.text.length < 20) {
+    confidence *= 0.7;
+  }
+  
+  // Bonificar textos com boa estrutura
+  if (transcription.text && transcription.text.length > 100) {
+    confidence += 0.05;
+  }
+  
+  // Garantir range realista (40-90% em vez de até 95%)
+  return Math.max(0.4, Math.min(0.9, confidence));
 }
 
 function generateHealthIndicators(analysis: any) {

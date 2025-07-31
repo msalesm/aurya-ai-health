@@ -282,6 +282,63 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Seção destacada de Sinais Vitais */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <FileText className="h-5 w-5" />
+                  SINAIS VITAIS PRINCIPAIS
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <div className="text-2xl font-bold text-destructive">
+                      {facialAnalysis?.heartRate || '--'} BPM
+                    </div>
+                    <div className="text-xs text-muted-foreground">Frequência Cardíaca</div>
+                    <div className="text-xs mt-1">
+                      {facialAnalysis?.heartRate > 100 ? '🔴 Elevada' : 
+                       facialAnalysis?.heartRate < 60 ? '🟡 Baixa' : '🟢 Normal'}
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <div className="text-2xl font-bold text-primary">
+                      {facialAnalysis?.bloodPressure || '--'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Pressão Arterial</div>
+                    <div className="text-xs mt-1">
+                      {facialAnalysis?.bloodPressure?.includes('130') || facialAnalysis?.bloodPressure?.includes('140') ? 
+                       '🟡 Elevada' : '🟢 Normal'}
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <div className="text-2xl font-bold text-warning">
+                      {facialAnalysis?.temperature ? `${facialAnalysis.temperature}°C` : '--'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Temperatura</div>
+                    <div className="text-xs mt-1">
+                      {facialAnalysis?.temperature > 37.5 ? '🔴 Febre' : 
+                       facialAnalysis?.temperature < 36 ? '🟡 Baixa' : '🟢 Normal'}
+                    </div>
+                  </div>
+                  
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <div className="text-2xl font-bold text-secondary">
+                      {facialAnalysis?.oxygenSaturation ? `${facialAnalysis.oxygenSaturation}%` : '--'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">SpO₂</div>
+                    <div className="text-xs mt-1">
+                      {facialAnalysis?.oxygenSaturation < 95 ? '🔴 Baixa' : 
+                       facialAnalysis?.oxygenSaturation < 97 ? '🟡 Limite' : '🟢 Normal'}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
