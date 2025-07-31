@@ -295,7 +295,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
-            Anamnese com IA
+            Anamnese Inteligente
           </DialogTitle>
         </DialogHeader>
 
@@ -311,7 +311,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
             <div className="text-center space-y-4">
               <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm text-muted-foreground">
-                Analisando suas respostas e avaliando prioridade médica...
+                Analisando respostas e calculando urgência...
               </p>
             </div>
           )}
@@ -373,7 +373,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
               </Button>
               
               <div className="text-xs text-muted-foreground self-center">
-                Seja específico em suas respostas para uma avaliação mais precisa
+                Responda com precisão para melhor análise
               </div>
             </div>
           )}

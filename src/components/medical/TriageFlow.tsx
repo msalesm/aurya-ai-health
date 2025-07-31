@@ -16,13 +16,10 @@ import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
-import { OnboardingGuide } from "./OnboardingGuide";
-import { useToast } from "@/hooks/use-toast";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
 
 const TriageFlow = () => {
-  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(["preparation"]));
   
@@ -31,12 +28,9 @@ const TriageFlow = () => {
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
   const [showClinicalModal, setShowClinicalModal] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState<string>("");
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
-  const [currentVitalSigns, setCurrentVitalSigns] = useState<any>(null);
 
   const steps = [
     {
@@ -48,22 +42,22 @@ const TriageFlow = () => {
     },
     {
       id: "voice-analysis",
-      title: "Análise de Voz Inteligente",
-      description: "Análise avançada de padrões vocais e respiratórios",
+      title: "Análise de Voz Híbrida",
+      description: "OpenAI Whisper + Google Speech + Análise emocional",
       icon: <Mic className="h-6 w-6" />,
       status: currentStep === "voice-analysis" ? "active" : "pending"
     },
     {
       id: "visual-assessment",
-      title: "Análise Facial Avançada",
-      description: "Detecção de sinais vitais através de visão computacional",
+      title: "Google Vision API",
+      description: "Análise facial completa com IA do Google Cloud",
       icon: <Video className="h-6 w-6" />,
       status: "pending"
     },
     {
       id: "anamnesis",
       title: "Anamnese com IA",
-      description: "Conversa inteligente sobre sintomas e histórico médico",
+      description: "Conversa direcionada sobre sintomas e histórico",
       icon: <Brain className="h-6 w-6" />,
       status: "pending"
     },
@@ -77,31 +71,22 @@ const TriageFlow = () => {
   ];
 
   const handleStartStep = (step: TriageStep) => {
-    // Show onboarding guide first for medical tests
-    if (step === "voice-analysis" || step === "visual-assessment" || step === "anamnesis") {
-      setOnboardingStep(step);
-      setShowOnboarding(true);
-      return;
-    }
-    
     setCurrentStep(step);
     
     // Open appropriate modal based on step
-    if (step === "analysis") {
-      setShowClinicalModal(true);
-    }
-  };
-
-  const handleOnboardingStart = (stepId: string) => {
-    setCurrentStep(stepId as TriageStep);
-    
-    // Open appropriate modal after onboarding
-    if (stepId === "voice-analysis") {
-      setShowVoiceModal(true);
-    } else if (stepId === "visual-assessment") {
-      setShowFacialModal(true);
-    } else if (stepId === "anamnesis") {
-      setShowAnamnesisModal(true);
+    switch (step) {
+      case "voice-analysis":
+        setShowVoiceModal(true);
+        break;
+      case "visual-assessment":
+        setShowFacialModal(true);
+        break;
+      case "anamnesis":
+        setShowAnamnesisModal(true);
+        break;
+      case "analysis":
+        setShowClinicalModal(true);
+        break;
     }
   };
 
@@ -117,27 +102,10 @@ const TriageFlow = () => {
        stepId === "anamnesis" ? "anamnesis" : stepId]: result
     }));
     
-    // Se o resultado contém sinais vitais, atualizar
-    if (result.vitalSigns) {
-      setCurrentVitalSigns(result.vitalSigns);
-    }
-    
-    // Store results and advance automatically
-    const stepName = steps.find(s => s.id === stepId)?.title || stepId;
-    
-    // Simple toast notification
-    toast({
-      title: "✓ " + stepName,
-      description: "Análise concluída com sucesso",
-      duration: 2000,
-    });
-
-    // Auto-advance to next step
-    const currentStepIndex = steps.findIndex(s => s.id === currentStep);
-    if (currentStepIndex < steps.length - 1) {
-      setTimeout(() => {
-        setCurrentStep(steps[currentStepIndex + 1].id as TriageStep);
-      }, 1000);
+    // Progress to next step
+    const stepIndex = steps.findIndex(s => s.id === stepId);
+    if (stepIndex < steps.length - 1) {
+      setCurrentStep(steps[stepIndex + 1].id as TriageStep);
     }
   };
 
@@ -239,13 +207,6 @@ const TriageFlow = () => {
       
           
           {/* Modals */}
-          <OnboardingGuide
-            isOpen={showOnboarding}
-            onClose={() => setShowOnboarding(false)}
-            onStartStep={handleOnboardingStart}
-            currentStep={onboardingStep}
-          />
-
           <VoiceAnalysisModal 
             isOpen={showVoiceModal}
             onClose={() => setShowVoiceModal(false)}
@@ -271,8 +232,6 @@ const TriageFlow = () => {
             facialAnalysis={stepResults.facial}
             anamnesisResults={stepResults.anamnesis}
           />
-
-          {/* Removido StepSuccess - fluxo direto sem modal intermediário */}
     </div>
   );
 };

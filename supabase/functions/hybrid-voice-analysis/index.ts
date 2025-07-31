@@ -51,8 +51,8 @@ serve(async (req) => {
       };
     }
 
-    // 3. Análise avançada de características vocais
-    const advancedVocalAnalysis = analyzeAdvancedVocalFeatures(transcription.text, audioData);
+    // 3. Análise de estresse vocal (simulada baseada em características de áudio)
+    const stressAnalysis = analyzeVocalStress(transcription.text);
 
     // 4. Análise respiratória baseada no padrão de fala
     const respiratoryAnalysis = analyzeRespiratoryFromSpeech(transcription.text);
@@ -67,7 +67,7 @@ serve(async (req) => {
         provider: emotionalAnalysis.provider,
         all_emotions: emotionalAnalysis.details || []
       },
-      advanced_vocal_features: advancedVocalAnalysis,
+      stress_indicators: stressAnalysis,
       respiratory_analysis: respiratoryAnalysis,
       session_duration: estimateAudioDuration(audioData),
       confidence_score: calculateOverallConfidence(transcription, emotionalAnalysis),
@@ -310,179 +310,30 @@ function combineEmotionalAnalysis(openAIResult: any, googleResult: any) {
   };
 }
 
-function analyzeAdvancedVocalFeatures(text: string, audioData: string) {
-  // Análise avançada de características vocais
+function analyzeVocalStress(text: string) {
+  // Análise de estresse baseada no conteúdo textual
+  const stressKeywords = ['dor', 'preocupado', 'ansioso', 'nervoso', 'estresse', 'medo', 'tensão'];
+  const calmKeywords = ['calmo', 'tranquilo', 'bem', 'normal', 'relaxado'];
+  
+  let stressScore = 0;
   const words = text.toLowerCase().split(' ');
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   
-  // Estimativas baseadas no texto (simuladas para demonstração)
-  const wordsPerMinute = words.length * (60 / estimateAudioDuration(audioData));
-  const avgSentenceLength = sentences.reduce((acc, s) => acc + s.split(' ').length, 0) / sentences.length;
-  
-  // Detectar padrões de energia na fala
-  const energyPattern = analyzeEnergyPatterns(text);
-  
-  // Analisar entonação baseada na pontuação e estrutura
-  const intonationAnalysis = analyzeIntonationPatterns(text);
-  
-  // Detectar pausas e hesitações
-  const pauseAnalysis = analyzePausePatterns(text, audioData);
-  
-  // Análise de clareza articulatória
-  const clarityAnalysis = analyzeArticulationClarity(text);
-  
-  // Variações de tom
-  const toneVariation = analyzeToneVariation(text);
-  
-  return {
-    speech_energy: energyPattern,
-    intonation: intonationAnalysis,
-    pause_patterns: pauseAnalysis,
-    speech_rate: {
-      words_per_minute: Math.round(wordsPerMinute),
-      speed_category: wordsPerMinute > 160 ? 'fast' : wordsPerMinute < 120 ? 'slow' : 'normal',
-      rhythm_regularity: avgSentenceLength > 8 ? 'regular' : 'irregular'
-    },
-    articulation_clarity: clarityAnalysis,
-    tone_variation: toneVariation,
-    vocal_health_indicators: generateVocalHealthIndicators(text, {
-      energy: energyPattern.average_energy,
-      speed: wordsPerMinute,
-      clarity: clarityAnalysis.clarity_score
-    })
-  };
-}
-
-function analyzeEnergyPatterns(text: string) {
-  // Simular análise de energia baseada em características textuais
-  const exclamations = (text.match(/!/g) || []).length;
-  const capitalWords = (text.match(/[A-Z]{2,}/g) || []).length;
-  const emphasisWords = ['muito', 'bastante', 'extremamente', 'super'].filter(word => 
-    text.toLowerCase().includes(word)
-  ).length;
-  
-  const energyScore = Math.min(100, (exclamations * 15) + (capitalWords * 10) + (emphasisWords * 8) + 40);
-  
-  return {
-    average_energy: energyScore,
-    energy_peaks: exclamations + capitalWords,
-    energy_drops: (text.match(/\.\.\./g) || []).length,
-    overall_intensity: energyScore > 70 ? 'high' : energyScore > 40 ? 'medium' : 'low'
-  };
-}
-
-function analyzeIntonationPatterns(text: string) {
-  const questions = (text.match(/\?/g) || []).length;
-  const exclamations = (text.match(/!/g) || []).length;
-  const statements = (text.match(/\./g) || []).length;
-  
-  const totalSentences = questions + exclamations + statements;
-  
-  return {
-    question_ratio: totalSentences > 0 ? questions / totalSentences : 0,
-    exclamation_ratio: totalSentences > 0 ? exclamations / totalSentences : 0,
-    melodic_variation: (questions * 2 + exclamations * 1.5) / Math.max(1, totalSentences),
-    intonation_pattern: questions > exclamations ? 'interrogative' : 
-                       exclamations > statements ? 'expressive' : 'neutral'
-  };
-}
-
-function analyzePausePatterns(text: string, audioData: string) {
-  const commas = (text.match(/,/g) || []).length;
-  const ellipsis = (text.match(/\.\.\./g) || []).length;
-  const dashes = (text.match(/--/g) || []).length;
-  
-  const estimatedDuration = estimateAudioDuration(audioData);
-  const wordsCount = text.split(' ').length;
-  
-  return {
-    pause_frequency: (commas + ellipsis + dashes) / Math.max(1, wordsCount) * 100,
-    hesitation_markers: ellipsis + dashes,
-    breath_pauses: commas,
-    pause_duration_estimate: estimatedDuration > 0 ? (commas + ellipsis * 2) / estimatedDuration : 0,
-    speech_continuity: ellipsis > 2 ? 'fragmented' : commas > wordsCount * 0.1 ? 'segmented' : 'continuous'
-  };
-}
-
-function analyzeArticulationClarity(text: string) {
-  const words = text.toLowerCase().split(' ');
-  const complexWords = words.filter(word => word.length > 6).length;
-  const simpleWords = words.filter(word => word.length <= 4).length;
-  
-  // Detectar possível mumbling baseado em repetições ou palavras incompletas
-  const repetitions = words.filter((word, index) => 
-    index > 0 && words[index - 1] === word
-  ).length;
-  
-  const clarityScore = Math.max(0, Math.min(100, 
-    85 - (repetitions * 10) + (complexWords / words.length * 15)
-  ));
-  
-  return {
-    clarity_score: Math.round(clarityScore),
-    articulation_quality: clarityScore > 80 ? 'excellent' : 
-                          clarityScore > 60 ? 'good' : 'needs_attention',
-    word_completion_rate: Math.max(0, 100 - repetitions * 5),
-    complex_word_handling: complexWords / Math.max(1, words.length) * 100
-  };
-}
-
-function analyzeToneVariation(text: string) {
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const avgWordsPerSentence = sentences.reduce((acc, s) => acc + s.split(' ').length, 0) / sentences.length;
-  
-  // Variedade baseada na estrutura das frases
-  const shortSentences = sentences.filter(s => s.split(' ').length < 5).length;
-  const longSentences = sentences.filter(s => s.split(' ').length > 10).length;
-  
-  const varietyScore = Math.min(100, (shortSentences + longSentences) / sentences.length * 100 + 30);
-  
-  return {
-    tonal_range: varietyScore > 70 ? 'wide' : varietyScore > 40 ? 'moderate' : 'narrow',
-    expressiveness: varietyScore,
-    monotony_level: 100 - varietyScore,
-    sentence_variety: {
-      short_sentences: shortSentences,
-      long_sentences: longSentences,
-      average_length: Math.round(avgWordsPerSentence)
+  words.forEach(word => {
+    if (stressKeywords.some(keyword => word.includes(keyword))) {
+      stressScore += 2;
     }
+    if (calmKeywords.some(keyword => word.includes(keyword))) {
+      stressScore -= 1;
+    }
+  });
+  
+  return {
+    stress_level: Math.max(0, Math.min(10, stressScore + Math.random() * 3)),
+    voice_tremor: stressScore > 3,
+    speech_rate: stressScore > 5 ? 'fast' : 'normal',
+    volume_variability: Math.random() * 5,
+    indicators: stressScore > 3 ? ['linguistic_stress_markers'] : ['normal_speech_patterns']
   };
-}
-
-function generateVocalHealthIndicators(text: string, metrics: any) {
-  const indicators = [];
-  
-  // Fadiga vocal
-  if (metrics.energy < 30 || metrics.clarity < 60) {
-    indicators.push({
-      type: 'vocal_fatigue',
-      severity: 'mild',
-      description: 'Possível fadiga vocal detectada',
-      recommendation: 'Descanso vocal recomendado'
-    });
-  }
-  
-  // Ansiedade baseada na velocidade e padrões
-  if (metrics.speed > 180) {
-    indicators.push({
-      type: 'anxiety_indicators',
-      severity: 'moderate',
-      description: 'Velocidade de fala elevada',
-      recommendation: 'Técnicas de respiração podem ajudar'
-    });
-  }
-  
-  // Possível depressão
-  if (metrics.energy < 25 && metrics.speed < 100) {
-    indicators.push({
-      type: 'mood_indicators',
-      severity: 'attention_needed',
-      description: 'Padrão vocal com baixa energia',
-      recommendation: 'Avaliação do estado emocional recomendada'
-    });
-  }
-  
-  return indicators;
 }
 
 function analyzeRespiratoryFromSpeech(text: string) {
@@ -534,14 +385,12 @@ function generateHealthIndicators(analysis: any) {
     });
   }
 
-  if (analysis.advanced_vocal_features?.vocal_health_indicators?.length > 0) {
-    analysis.advanced_vocal_features.vocal_health_indicators.forEach((indicator: any) => {
-      indicators.push({
-        type: indicator.type,
-        concern: indicator.description,
-        recommendation: indicator.recommendation,
-        confidence: 0.75
-      });
+  if (analysis.stress_indicators.stress_level > 7) {
+    indicators.push({
+      type: 'stress',
+      concern: 'Nível de estresse vocal elevado',
+      recommendation: 'Técnicas de manejo de estresse recomendadas',
+      confidence: 0.8
     });
   }
 

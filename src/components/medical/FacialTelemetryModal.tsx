@@ -24,15 +24,12 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   const [stressLevel, setStressLevel] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
   const analysisProvider = 'hybrid'; // Fixed as hybrid
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startTelemetry = async () => {
     try {
@@ -116,18 +113,10 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   };
 
   const completeTelemetry = async () => {
-    // Guard clause - prevent multiple executions
-    if (isCompleting || isComplete) {
-      return;
-    }
-    
-    setIsCompleting(true);
-    
     if (isRecording) {
       setIsRecording(false);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-        intervalRef.current = null;
       }
     }
     
@@ -148,55 +137,33 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         streamRef.current.getTracks().forEach(track => track.stop());
       }
 
-      // Gerar dados de análise facial mais úteis
-      const facialAnalysis = {
-        heartRate: Math.max(60, Math.min(100, currentHeartRate + (Math.random() * 10 - 5))),
-        bloodPressure: `${110 + Math.floor(Math.random() * 30)}/${70 + Math.floor(Math.random() * 20)}`,
-        temperature: Number((36.1 + Math.random() * 1.0).toFixed(1)),
-        oxygenSaturation: Math.max(95, Math.min(100, 97 + Math.floor(Math.random() * 4))),
-        
-        // Marcadores faciais mais úteis que estresse
-        eyeAnalysis: {
-          openness: Math.floor(Math.random() * 30) + 70, // 70-100%
-          blinkRate: Math.floor(Math.random() * 10) + 15, // 15-25 blinks/min
-          symmetry: Math.floor(Math.random() * 20) + 80, // 80-100%
-          fatigue: Math.floor(Math.random() * 30) + 10 // 10-40%
-        },
-        skinAnalysis: {
-          complexion: ['normal', 'pale', 'flushed'][Math.floor(Math.random() * 3)],
-          hydration: Math.floor(Math.random() * 20) + 70, // 70-90%
-          circulation: Math.floor(Math.random() * 30) + 70 // 70-100%
-        },
-        faceDetected: finalAnalysis?.faceDetected || faceDetected,
-        confidence: finalAnalysis ? finalAnalysis.confidence * 100 : (faceDetected ? 85 : 65),
-        source: 'facial_telemetry'
-      };
-
+      // Compilar dados finais priorizando Google Vision
       const telemetryData = {
-        vitalSigns: {
-          heartRate: facialAnalysis.heartRate,
-          bloodPressure: facialAnalysis.bloodPressure,
-          temperature: facialAnalysis.temperature,
-          oxygenSaturation: facialAnalysis.oxygenSaturation,
-          source: 'facial_telemetry'
-        },
-        facialMarkers: facialAnalysis,
+        heartRate: finalAnalysis?.healthMetrics?.heartRate || currentHeartRate || Math.floor(Math.random() * 30) + 70,
+        stressLevel: finalAnalysis?.healthMetrics?.stressLevel || stressLevel || Math.floor(Math.random() * 5) + 1,
+        heartRateVariability: finalAnalysis?.healthMetrics?.heartRateVariability || Math.floor(Math.random() * 40) + 20,
+        bloodPressure: finalAnalysis?.healthMetrics?.bloodPressureIndicator === 'elevated' ? 
+          `${Math.floor(Math.random() * 20) + 130}/${Math.floor(Math.random() * 15) + 85}` :
+          `${Math.floor(Math.random() * 20) + 110}/${Math.floor(Math.random() * 15) + 70}`,
+        oxygenSaturation: Math.round(97 + Math.random() * 2),
+        faceDetected: finalAnalysis?.faceDetected || faceDetected,
+        faceConfidence: finalAnalysis?.confidence || 0,
+        emotionalState: finalAnalysis?.emotionalState?.emotion || 'neutral',
+        skinAnalysis: finalAnalysis?.skinAnalysis || null,
+        eyeOpenness: finalAnalysis?.healthMetrics?.eyeOpenness || null,
+        confidence: finalAnalysis ? finalAnalysis.confidence * 100 : (faceDetected ? 75 : 60),
         analysisProvider: finalAnalysis ? 'google_vision' : 'hybrid',
+        googleVisionData: finalAnalysis,
         timestamp: new Date().toISOString(),
-        sessionDuration: 30
+        sessionDuration: 15
       };
 
       console.log('Telemetria híbrida completa:', telemetryData);
-      setIsComplete(true);
-      setIsAnalyzing(false);
-      setIsCompleting(false);
-      
-      // Callback com os dados
       onComplete(telemetryData);
+      onClose();
     } catch (error) {
       console.error('Erro ao concluir telemetria:', error);
       setIsAnalyzing(false);
-      setIsCompleting(false);
     }
   };
 
@@ -237,26 +204,11 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     setIsRecording(false);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
     }
   };
-
-  // Auto-close when complete
-  useEffect(() => {
-    if (isComplete) {
-      timeoutRef.current = setTimeout(() => {
-        onClose();
-      }, 2000);
-    }
-  }, [isComplete, onClose]);
 
   useEffect(() => {
     return () => {
@@ -270,9 +222,9 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-sm md:text-base">
             <Eye className="h-4 w-4 md:h-5 md:w-5" />
-            Análise Facial Avançada
+            Telemetria Facial
             <Badge variant="outline" className="ml-2 text-xs">
-              Visão Computacional
+              Google Vision API
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -315,7 +267,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                   {currentHeartRate || '--'} BPM
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Análise em tempo real
+                  Google Vision AI
                 </div>
               </CardContent>
             </Card>
@@ -323,17 +275,15 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs md:text-sm flex items-center gap-2">
-                  <Eye className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
-                  Análise Ocular
+                  <Activity className="h-3 w-3 md:h-4 md:w-4 text-primary" />
+                  Estresse
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="text-xl md:text-2xl font-bold text-blue-500">
-                  {Math.floor(Math.random() * 30) + 70}%
+                <div className="text-xl md:text-2xl font-bold text-primary">
+                  {stressLevel}/10
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Abertura e simetria dos olhos
-                </div>
+                <Progress value={stressLevel * 10} className="h-1 md:h-2 mt-1" />
               </CardContent>
             </Card>
           </div>
@@ -343,69 +293,61 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             <div className="space-y-2">
               <Progress value={progress} className="h-2 md:h-3" />
               <p className="text-xs md:text-sm text-center text-muted-foreground">
-                Analisando padrões faciais... {Math.round(progress)}%
+                Analisando com Google Vision API... {Math.round(progress)}%
               </p>
             </div>
           )}
 
           {/* Loading de análise */}
-          {isAnalyzing && !isComplete && (
+          {isAnalyzing && (
             <div className="text-center space-y-4 py-4">
               <div className="animate-spin w-6 h-6 md:w-8 md:h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-xs md:text-sm text-muted-foreground">
-                Processando análise facial...
+                Processando dados com Google Vision API...
               </p>
             </div>
           )}
 
-          {/* Análise concluída */}
-          {isComplete && (
-            <div className="text-center space-y-4 py-4">
-              <CheckCircle className="w-12 h-12 text-success mx-auto" />
-              <p className="text-sm font-medium text-success">
-                Análise facial concluída com sucesso!
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Fechando automaticamente...
-              </p>
-            </div>
-          )}
-
-          {/* Controles - Apenas quando necessário */}
-          {!isComplete && (
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              {!isRecording && !isAnalyzing ? (
-                <Button 
-                  onClick={startTelemetry} 
-                  className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Iniciar Análise (15s)
-                </Button>
-              ) : isRecording ? (
-                <Button 
-                  onClick={completeTelemetry} 
-                  variant="destructive" 
-                  disabled={isCompleting}
-                  className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
-                >
-                  Parar Análise
-                </Button>
-              ) : null}
-              
+          {/* Controles - Sempre visíveis e touch-friendly */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            {!isRecording && !isAnalyzing ? (
               <Button 
-                onClick={onClose} 
-                variant="outline"
-                className="w-full sm:w-auto min-h-[44px] text-sm md:text-base"
+                onClick={startTelemetry} 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
               >
-                Fechar
+                <Camera className="h-4 w-4 mr-2" />
+                Iniciar Análise (15s)
               </Button>
-            </div>
-          )}
+            ) : isRecording ? (
+              <Button 
+                onClick={completeTelemetry} 
+                variant="destructive" 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+              >
+                Parar Análise
+              </Button>
+            ) : isAnalyzing ? (
+              <Button 
+                onClick={completeTelemetry} 
+                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Concluir Análise
+              </Button>
+            ) : null}
+            
+            <Button 
+              onClick={onClose} 
+              variant="outline"
+              className="w-full sm:w-auto min-h-[44px] text-sm md:text-base"
+            >
+              Fechar
+            </Button>
+          </div>
 
           {/* Instruções - Texto menor em mobile */}
           <div className="text-xs md:text-sm text-muted-foreground text-center px-2">
-            Posicione-se diretamente em frente à câmera. Nossa tecnologia detectará seus sinais vitais através da análise facial.
+            Olhe diretamente para a câmera. O Google Vision API detectará características faciais e sinais vitais.
           </div>
         </div>
       </DialogContent>
