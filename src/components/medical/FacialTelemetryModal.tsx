@@ -251,6 +251,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
 
 
   const completeTelemetry = async () => {
+    console.log('completeTelemetry called - starting cleanup and data compilation');
     setIsRecording(false);
     
     // Stop intervals and rPPG analysis
@@ -333,6 +334,8 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     };
     
     stopTelemetry();
+    
+    console.log('Facial analysis completed, calling onComplete with data:', telemetryData);
     onComplete(telemetryData);
   };
 
@@ -421,57 +424,47 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Controles para Mobile - Posicionamento Superior */}
+          {/* Controles para Mobile - Botão sempre no topo */}
           <div className="block md:hidden">
-            {!isRecording ? (
-              <div className="text-center space-y-4">
-                <Button 
-                  onClick={startTelemetry} 
-                  size="lg" 
-                  className="w-full bg-primary hover:bg-primary/90 text-white"
-                >
-                  <Play className="h-5 w-5 mr-2" />
-                  Iniciar Análise Facial
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  Posicione-se bem iluminado e olhe diretamente para a câmera
-                </div>
-              </div>
-            ) : analysisCompleted ? (
-              <div className="text-center space-y-4">
-                <Button 
-                  onClick={completeTelemetry}
-                  size="lg" 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Concluir Análise
-                </Button>
-                {canContinue && (
+            <div className="bg-card border rounded-lg p-4 mb-4">
+              {!isRecording ? (
+                <div className="text-center space-y-3">
                   <Button 
-                    onClick={completeTelemetry}
+                    onClick={startTelemetry} 
+                    size="lg" 
+                    className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3"
+                  >
+                    <Play className="h-5 w-5 mr-2" />
+                    Iniciar Análise Facial
+                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    📱 Posicione-se bem iluminado e olhe diretamente para a câmera
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center space-y-3">
+                  {canContinue && (
+                    <Button 
+                      onClick={completeTelemetry}
+                      size="lg" 
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
+                    >
+                      <ArrowRight className="h-5 w-5 mr-2" />
+                      Continuar para Análise de Voz
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={stopTelemetry}
                     variant="outline" 
                     size="lg" 
                     className="w-full"
                   >
-                    <ArrowRight className="h-5 w-5 mr-2" />
-                    Continuar para Análise de Voz
+                    <Square className="h-5 w-5 mr-2" />
+                    Parar Análise
                   </Button>
-                )}
-              </div>
-            ) : (
-              <div className="text-center">
-                <Button 
-                  onClick={stopTelemetry}
-                  variant="destructive" 
-                  size="lg" 
-                  className="w-full"
-                >
-                  <Square className="h-5 w-5 mr-2" />
-                  Parar Análise
-                </Button>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Video Feed */}

@@ -527,8 +527,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar Relatório PDF
+                    <FileText className="h-4 w-4 mr-2" />
+                    Visualizar Relatório
                   </>
                 )}
               </Button>
