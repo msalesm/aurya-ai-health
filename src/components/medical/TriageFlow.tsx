@@ -17,7 +17,6 @@ import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 import { OnboardingGuide } from "./OnboardingGuide";
-import { StepSuccess } from "./StepSuccess";
 import { useToast } from "@/hooks/use-toast";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
@@ -34,8 +33,6 @@ const TriageFlow = () => {
   const [showClinicalModal, setShowClinicalModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<string>("");
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successStepTitle, setSuccessStepTitle] = useState("");
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
@@ -125,13 +122,23 @@ const TriageFlow = () => {
       setCurrentVitalSigns(result.vitalSigns);
     }
     
-    // Show success feedback - apenas um método
+    // Store results and advance automatically
     const stepName = steps.find(s => s.id === stepId)?.title || stepId;
-    setSuccessStepTitle(stepName);
-    setShowSuccess(true);
     
-    // Não mostrar toast se o modal de sucesso já está visível
-    // O feedback visual será apenas o modal animado
+    // Simple toast notification
+    toast({
+      title: "✓ " + stepName,
+      description: "Análise concluída com sucesso",
+      duration: 2000,
+    });
+
+    // Auto-advance to next step
+    const currentStepIndex = steps.findIndex(s => s.id === currentStep);
+    if (currentStepIndex < steps.length - 1) {
+      setTimeout(() => {
+        setCurrentStep(steps[currentStepIndex + 1].id as TriageStep);
+      }, 1000);
+    }
   };
 
   const getStepStatus = (stepId: string) => {
@@ -265,15 +272,7 @@ const TriageFlow = () => {
             anamnesisResults={stepResults.anamnesis}
           />
 
-          <StepSuccess
-            stepTitle={successStepTitle}
-            isVisible={showSuccess}
-            onComplete={() => {
-              setShowSuccess(false);
-              // Não avançar automaticamente - deixar o usuário escolher
-              // Apenas dar feedback de conclusão
-            }}
-          />
+          {/* Removido StepSuccess - fluxo direto sem modal intermediário */}
     </div>
   );
 };
