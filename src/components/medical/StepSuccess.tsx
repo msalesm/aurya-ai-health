@@ -42,8 +42,8 @@ export const StepSuccess: React.FC<StepSuccessProps> = ({
             </p>
           </div>
 
-          <div className="text-xs text-muted-foreground">
-            Avançando para próxima etapa...
+          <div className="text-xs text-success">
+            ✓ Etapa concluída com sucesso
           </div>
         </CardContent>
       </Card>

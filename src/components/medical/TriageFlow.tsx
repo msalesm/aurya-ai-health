@@ -125,16 +125,13 @@ const TriageFlow = () => {
       setCurrentVitalSigns(result.vitalSigns);
     }
     
-    // Show success feedback
+    // Show success feedback - apenas um método
     const stepName = steps.find(s => s.id === stepId)?.title || stepId;
     setSuccessStepTitle(stepName);
     setShowSuccess(true);
     
-    toast({
-      title: "Etapa concluída!",
-      description: `${stepName} foi realizada com sucesso.`,
-      duration: 3000,
-    });
+    // Não mostrar toast se o modal de sucesso já está visível
+    // O feedback visual será apenas o modal animado
   };
 
   const getStepStatus = (stepId: string) => {
@@ -273,11 +270,8 @@ const TriageFlow = () => {
             isVisible={showSuccess}
             onComplete={() => {
               setShowSuccess(false);
-              // Progress to next step after success animation
-              const currentStepIndex = steps.findIndex(s => s.id === currentStep);
-              if (currentStepIndex < steps.length - 1) {
-                setCurrentStep(steps[currentStepIndex + 1].id as TriageStep);
-              }
+              // Não avançar automaticamente - deixar o usuário escolher
+              // Apenas dar feedback de conclusão
             }}
           />
     </div>

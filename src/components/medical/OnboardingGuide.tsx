@@ -13,44 +13,135 @@ interface OnboardingGuideProps {
 }
 
 const stepGuides = {
+  "preparation": {
+    title: "Bem-vindo ao Sistema de Triagem Inteligente",
+    subtitle: "Sua avaliação médica personalizada em 5-10 minutos",
+    description: "Este sistema utiliza inteligência artificial para realizar uma triagem médica completa e segura.",
+    icon: <CheckCircle className="h-8 w-8" />,
+    color: "text-success",
+    bgColor: "bg-success/10",
+    steps: [
+      {
+        icon: "📱",
+        title: "Ambiente Adequado",
+        description: "Local bem iluminado e silencioso para melhor precisão"
+      },
+      {
+        icon: "🔒",
+        title: "Privacidade Total",
+        description: "Seus dados são processados localmente e de forma segura"
+      },
+      {
+        icon: "⏱️",
+        title: "Processo Rápido",
+        description: "5-10 minutos para avaliação completa e resultado"
+      },
+      {
+        icon: "🩺",
+        title: "Tecnologia Médica",
+        description: "IA treinada com dados médicos validados"
+      }
+    ],
+    tips: [
+      "Mantenha celular carregado durante todo o processo",
+      "Conceda permissões de câmera e microfone quando solicitado",
+      "Responda com honestidade para melhores resultados",
+      "Você pode pausar a qualquer momento"
+    ],
+    nextAction: "Iniciar Primeira Análise"
+  },
   "voice-analysis": {
     title: "Análise de Voz Inteligente",
-    description: "Nossa IA analisará padrões na sua voz para identificar indicadores de saúde",
-    icon: <Mic className="h-8 w-8 text-primary" />,
-    instructions: [
-      "Encontre um ambiente silencioso",
-      "Fale naturalmente sobre como está se sentindo",
-      "A gravação dura no máximo 60 segundos",
-      "Nossa IA detecta padrões respiratórios e emocionais"
+    subtitle: "Detecção de padrões respiratórios e vocais",
+    description: "Nossa IA analisará sua voz para identificar indicadores de saúde respiratória e emocional.",
+    icon: <Mic className="h-8 w-8" />,
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10",
+    steps: [
+      {
+        icon: "🎤",
+        title: "Posição do Microfone",
+        description: "20-30cm de distância da boca para melhor captação"
+      },
+      {
+        icon: "🗣️",
+        title: "Fala Natural",
+        description: "Fale normalmente, sem forçar ou alterar sua voz"
+      },
+      {
+        icon: "📊",
+        title: "Análise Automática",
+        description: "IA detecta respiração, ritmo e padrões emocionais"
+      }
     ],
-    preparation: "Respire fundo e relaxe. Você pode falar sobre qualquer sintoma ou como está se sentindo hoje.",
-    tips: "💡 Dica: Fale de forma natural, como se conversasse com um amigo"
+    tips: [
+      "Gravação dura apenas 30 segundos",
+      "Fale de forma natural e relaxada",
+      "Ambiente silencioso melhora a precisão"
+    ],
+    nextAction: "Iniciar Gravação"
   },
   "visual-assessment": {
-    title: "Análise Facial Avançada",
-    description: "Tecnologia de visão computacional detecta sinais vitais através da sua face",
-    icon: <Video className="h-8 w-8 text-primary" />,
-    instructions: [
-      "Posicione-se bem à frente da câmera",
-      "Mantenha boa iluminação no rosto",
-      "Permaneça relativamente imóvel",
-      "O sistema detecta batimentos cardíacos e níveis de estresse"
+    title: "Análise Facial Avançada", 
+    subtitle: "Detecção de sinais vitais por câmera",
+    description: "Tecnologia de visão computacional para medir frequência cardíaca e outros sinais vitais.",
+    icon: <Video className="h-8 w-8" />,
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10",
+    steps: [
+      {
+        icon: "📹",
+        title: "Posicionamento",
+        description: "Rosto centralizado, distância de 50cm da câmera"
+      },
+      {
+        icon: "💡",
+        title: "Iluminação Frontal",
+        description: "Boa luz no rosto, evite contraluz"
+      },
+      {
+        icon: "❤️",
+        title: "Sinais Vitais",
+        description: "Detecção de frequência cardíaca via mudanças sutis na pele"
+      }
     ],
-    preparation: "Certifique-se de que sua face está bem visível e iluminada. Remova óculos se possível.",
-    tips: "💡 Dica: Mantenha-se relaxado e olhe diretamente para a câmera"
+    tips: [
+      "Mantenha-se imóvel durante 30 segundos",
+      "Olhe diretamente para a câmera",
+      "Expressão neutra e relaxada"
+    ],
+    nextAction: "Iniciar Análise Facial"
   },
   "anamnesis": {
     title: "Anamnese com IA",
-    description: "Conversa inteligente guiada por IA para compreender seu histórico médico",
-    icon: <Brain className="h-8 w-8 text-primary" />,
-    instructions: [
-      "Responda às perguntas com sinceridade",
-      "Seja específico sobre sintomas e datas",
-      "A IA adapta as perguntas conforme suas respostas",
-      "Não se preocupe se não souber alguma informação"
+    subtitle: "Conversa médica inteligente",
+    description: "Chat com IA médica que fará perguntas personalizadas baseadas em suas respostas anteriores.",
+    icon: <Brain className="h-8 w-8" />,
+    color: "text-green-500",
+    bgColor: "bg-green-500/10",
+    steps: [
+      {
+        icon: "💬",
+        title: "Conversa Natural",
+        description: "Responda como se estivesse falando com um médico"
+      },
+      {
+        icon: "📝",
+        title: "Detalhes Importantes",
+        description: "Mencione sintomas, duração e medicamentos"
+      },
+      {
+        icon: "🧠",
+        title: "IA Adaptativa",
+        description: "Perguntas inteligentes baseadas nas suas respostas"
+      }
     ],
-    preparation: "Pense em sintomas recentes, medicamentos que toma e seu histórico familiar de saúde.",
-    tips: "💡 Dica: Quanto mais detalhes você fornecer, mais precisa será a análise"
+    tips: [
+      "Seja específico sobre sintomas",
+      "Mencione quando começaram os sintomas",
+      "Liste medicamentos em uso"
+    ],
+    nextAction: "Iniciar Conversa"
   }
 };
 
@@ -75,11 +166,13 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            {guide.icon}
+            <div className={`p-2 rounded-full ${guide.bgColor}`}>
+              <div className={guide.color}>{guide.icon}</div>
+            </div>
             <div>
               <div>{guide.title}</div>
               <div className="text-sm text-muted-foreground font-normal">
-                {guide.description}
+                {guide.subtitle}
               </div>
             </div>
           </DialogTitle>
@@ -89,35 +182,44 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
           {currentPage === 0 ? (
             // Página de instruções
             <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {guide.description}
+              </p>
+
               <Card>
                 <CardContent className="pt-6">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    Como funciona:
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-success" />
+                    Passos do processo:
                   </h3>
-                  <ul className="space-y-2">
-                    {guide.instructions.map((instruction, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-sm flex items-center justify-center shrink-0 mt-0.5">
-                          {index + 1}
+                  <div className="grid gap-3">
+                    {guide.steps.map((step, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="text-xl">{step.icon}</div>
+                        <div>
+                          <div className="font-medium text-sm">{step.title}</div>
+                          <div className="text-xs text-muted-foreground">{step.description}</div>
                         </div>
-                        <span className="text-sm">{instruction}</span>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </CardContent>
               </Card>
 
               <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Preparação:</strong> {guide.preparation}
-                </p>
+                <h4 className="font-medium text-sm text-blue-700 dark:text-blue-300 mb-2">💡 Dicas importantes:</h4>
+                <ul className="space-y-1">
+                  {guide.tips.map((tip, index) => (
+                    <li key={index} className="text-sm text-blue-600 dark:text-blue-400">
+                      • {tip}
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-4">{guide.tips}</p>
-                <Button onClick={() => setCurrentPage(1)} size="lg">
-                  Continuar
+                <Button onClick={() => setCurrentPage(1)} size="lg" className="w-full">
+                  Entendi, continuar
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </div>
@@ -125,15 +227,15 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
           ) : (
             // Página de confirmação
             <div className="text-center space-y-6">
-              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto">
-                <CheckCircle className="h-10 w-10 text-green-600" />
+              <div className={`w-20 h-20 rounded-full ${guide.bgColor} flex items-center justify-center mx-auto`}>
+                <div className={guide.color}>{guide.icon}</div>
               </div>
               
               <div>
                 <h3 className="text-lg font-semibold mb-2">Pronto para começar!</h3>
                 <p className="text-muted-foreground">
                   Você está preparado para a {guide.title.toLowerCase()}. 
-                  O teste começará assim que você clicar no botão abaixo.
+                  O processo começará assim que você clicar no botão abaixo.
                 </p>
               </div>
 
@@ -150,7 +252,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({
                 </Button>
                 <Button onClick={handleStart} size="lg" className="flex-1">
                   <Play className="h-4 w-4 mr-2" />
-                  Iniciar Teste
+                  {guide.nextAction}
                 </Button>
               </div>
             </div>
