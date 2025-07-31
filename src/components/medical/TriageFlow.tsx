@@ -234,8 +234,19 @@ const TriageFlow = () => {
           
           <FacialTelemetryModal 
             isOpen={showFacialModal}
-            onClose={() => setShowFacialModal(false)}
-            onComplete={(result) => handleStepComplete("facial-analysis", result)}
+            onClose={() => {
+              setShowFacialModal(false);
+              console.log('FacialTelemetryModal closed');
+            }}
+            onComplete={(result) => {
+              console.log('FacialTelemetryModal completed with result:', result);
+              setShowFacialModal(false);
+              handleStepComplete("facial-analysis", result);
+              // Auto-open next step after successful completion
+              setTimeout(() => {
+                setShowVoiceModal(true);
+              }, 500);
+            }}
           />
           
           <VoiceAnalysisModal 
