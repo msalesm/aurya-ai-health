@@ -25,12 +25,14 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   const [faceDetected, setFaceDetected] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const analysisProvider = 'hybrid'; // Fixed as hybrid
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startTelemetry = async () => {
     try {
@@ -114,10 +116,18 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   };
 
   const completeTelemetry = async () => {
+    // Guard clause - prevent multiple executions
+    if (isCompleting || isComplete) {
+      return;
+    }
+    
+    setIsCompleting(true);
+    
     if (isRecording) {
       setIsRecording(false);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
     
@@ -179,15 +189,14 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       console.log('Telemetria híbrida completa:', telemetryData);
       setIsComplete(true);
       setIsAnalyzing(false);
+      setIsCompleting(false);
       
-      // Auto-fechar após 2 segundos e enviar dados
-      setTimeout(() => {
-        onComplete(telemetryData);
-        onClose();
-      }, 2000);
+      // Callback com os dados
+      onComplete(telemetryData);
     } catch (error) {
       console.error('Erro ao concluir telemetria:', error);
       setIsAnalyzing(false);
+      setIsCompleting(false);
     }
   };
 
@@ -228,11 +237,26 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     setIsRecording(false);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
   };
+
+  // Auto-close when complete
+  useEffect(() => {
+    if (isComplete) {
+      timeoutRef.current = setTimeout(() => {
+        onClose();
+      }, 2000);
+    }
+  }, [isComplete, onClose]);
 
   useEffect(() => {
     return () => {
@@ -362,6 +386,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                 <Button 
                   onClick={completeTelemetry} 
                   variant="destructive" 
+                  disabled={isCompleting}
                   className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
                 >
                   Parar Análise
