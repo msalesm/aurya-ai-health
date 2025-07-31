@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
 import { useCorrelationAnalysis } from '@/hooks/useCorrelationAnalysis';
+import { CorrelationDashboard } from './CorrelationDashboard';
 import { toast } from '@/hooks/use-toast';
 import { 
   FileText, 
@@ -488,7 +489,10 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Análise Clínica Consolidada
+            Análise Clínica Multi-Modal
+            {clinicalReport?.enhancedWithCorrelation && (
+              <Badge variant="outline" className="ml-2">Correlação Ativa</Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -651,6 +655,16 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
                 </CardContent>
               </Card>
             </div>
+
+            {/* Correlation Dashboard */}
+            {clinicalReport?.enhancedWithCorrelation && clinicalReport?.crossModalCorrelation && (
+              <CorrelationDashboard
+                correlationData={clinicalReport.crossModalCorrelation}
+                biometricData={clinicalReport.biometricCorrelation}
+                outliers={clinicalReport.outliers}
+                urgencyData={clinicalReport.overallUrgency}
+              />
+            )}
 
             <Card>
               <CardHeader>

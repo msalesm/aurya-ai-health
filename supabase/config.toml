@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.medical-inference]
 verify_jwt = false
+
+[functions.intelligent-anamnesis]
+verify_jwt = false
+
+[functions.medical-correlation]
+verify_jwt = false
+
+[functions.hybrid-voice-analysis]
+verify_jwt = false
