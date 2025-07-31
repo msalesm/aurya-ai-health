@@ -39,6 +39,7 @@ const TriageFlow = () => {
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
+  const [currentVitalSigns, setCurrentVitalSigns] = useState<any>(null);
 
   const steps = [
     {
@@ -118,6 +119,11 @@ const TriageFlow = () => {
        stepId === "visual-assessment" ? "facial" : 
        stepId === "anamnesis" ? "anamnesis" : stepId]: result
     }));
+    
+    // Se o resultado contém sinais vitais, atualizar
+    if (result.vitalSigns) {
+      setCurrentVitalSigns(result.vitalSigns);
+    }
     
     // Show success feedback
     const stepName = steps.find(s => s.id === stepId)?.title || stepId;
