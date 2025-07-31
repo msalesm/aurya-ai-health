@@ -137,12 +137,31 @@ const PreparationModal: React.FC<PreparationModalProps> = ({
                   
                   <div className="space-y-2">
                     <Label htmlFor="birthDate">Data de Nascimento</Label>
-                    <Input
-                      id="birthDate"
-                      type="date"
-                      value={patientData.birthDate}
-                      onChange={(e) => handleBirthDateChange(e.target.value)}
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        id="birthDate"
+                        type="date"
+                        value={patientData.birthDate}
+                        onChange={(e) => handleBirthDateChange(e.target.value)}
+                      />
+                      <Input
+                        placeholder="DD/MM/AAAA"
+                        value={patientData.birthDate ? new Date(patientData.birthDate).toLocaleDateString('pt-BR') : ''}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          if (value.length <= 8) {
+                            const formatted = value.replace(/(\d{2})(\d{2})(\d{4})/, '$1/$2/$3');
+                            if (value.length === 8) {
+                              const day = value.substring(0, 2);
+                              const month = value.substring(2, 4);
+                              const year = value.substring(4, 8);
+                              const dateString = `${year}-${month}-${day}`;
+                              handleBirthDateChange(dateString);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
                     {patientData.age && (
                       <p className="text-sm text-muted-foreground">
                         Idade: {patientData.age} anos

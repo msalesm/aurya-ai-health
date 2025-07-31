@@ -15,7 +15,7 @@ import {
 import PreparationModal from "./PreparationModal";
 import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
-import AnamnesisModal from "./AnamnesisModal";
+import IntelligentAnamnesisModal from "./IntelligentAnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 
 type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "anamnesis" | "analysis";
@@ -255,7 +255,7 @@ const TriageFlow = () => {
             onComplete={(result) => handleStepComplete("voice-analysis", result)}
           />
           
-          <AnamnesisModal 
+          <IntelligentAnamnesisModal 
             isOpen={showAnamnesisModal}
             onClose={() => setShowAnamnesisModal(false)}
             onComplete={(result) => handleStepComplete("anamnesis", result)}

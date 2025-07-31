@@ -277,9 +277,14 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           )}
 
           {/* Instruções */}
-          <div className="text-xs text-muted-foreground text-center">
-            Fale naturalmente sobre como você está se sentindo. 
-            A IA analisará padrões de voz, respiração e emoção.
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+            <h4 className="font-medium text-blue-900 text-sm">💬 Instruções de Gravação:</h4>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• Descreva como você está se sentindo hoje</li>
+              <li>• Mencione seus principais sintomas ou desconfortos</li>
+              <li>• Fale sobre quando os sintomas começaram</li>
+              <li>• A IA analisará sua voz, respiração e emoção</li>
+            </ul>
           </div>
         </div>
       </DialogContent>

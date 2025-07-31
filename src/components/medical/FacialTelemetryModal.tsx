@@ -137,12 +137,13 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       }
       
       // Auto-complete after 15 seconds if user hasn't acted
-      if (currentProgress >= 100 && !analysisCompleted) {
+      if (currentProgress >= 100) {
+        setAnalysisCompleted(true);
         setTimeout(() => {
           if (isRecording) {
             completeTelemetry();
           }
-        }, 2000);
+        }, 1000); // Reduzido para 1 segundo
       }
     }, 1000);
     
@@ -472,6 +473,11 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                   {canContinue && !analysisCompleted && (
                     <div className="text-xs text-green-600 font-medium">
                       ✓ Dados suficientes coletados - pode continuar
+                    </div>
+                  )}
+                  {analysisCompleted && (
+                    <div className="text-xs text-blue-600 font-medium animate-pulse">
+                      ⏳ Finalizando análise...
                     </div>
                   )}
                 </div>
