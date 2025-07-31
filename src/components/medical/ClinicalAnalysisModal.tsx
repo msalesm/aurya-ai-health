@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
+import { toast } from '@/hooks/use-toast';
 import { 
   FileText, 
   Download, 
@@ -13,7 +14,12 @@ import {
   Heart,
   Thermometer,
   Gauge,
-  Droplets
+  Droplets,
+  Share2,
+  Printer,
+  X,
+  Mail,
+  ArrowRight
 } from "lucide-react";
 
 interface PatientData {
@@ -25,6 +31,7 @@ interface PatientData {
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onComplete?: (data: any) => void;
   voiceAnalysis?: any;
   facialAnalysis?: any;
   anamnesisResults?: any;
@@ -34,6 +41,7 @@ interface ClinicalAnalysisModalProps {
 export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   isOpen,
   onClose,
+  onComplete,
   voiceAnalysis,
   facialAnalysis,
   anamnesisResults,
@@ -43,6 +51,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
   const [snapshotVitalSigns, setSnapshotVitalSigns] = useState<any>(null);
+  const [showReportPreview, setShowReportPreview] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   
   const { captureVitalSignsSnapshot, updateFromFacialAnalysis, updateFromVoiceAnalysis } = useVitalSigns();
 
@@ -176,7 +186,11 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  const generatePDFReport = async () => {
+  const previewReport = () => {
+    setShowReportPreview(true);
+  };
+
+  const downloadPDFReport = async () => {
     if (!clinicalReport || isGeneratingReport) return;
     
     setIsGeneratingReport(true);
@@ -320,6 +334,41 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       URL.revokeObjectURL(url);
     } finally {
       setIsGeneratingReport(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!onComplete) {
+      onClose();
+      return;
+    }
+
+    setIsCompleting(true);
+
+    // Chamar onComplete passando os dados da análise
+    const completionData = {
+      type: 'clinical-analysis',
+      report: clinicalReport,
+      timestamp: new Date().toISOString(),
+      completed: true
+    };
+
+    try {
+      await onComplete(completionData);
+      toast({
+        title: "Análise Clínica Finalizada",
+        description: "Triagem médica concluída com sucesso. Todas as etapas foram finalizadas.",
+      });
+      onClose();
+    } catch (error) {
+      console.error('Erro ao finalizar análise:', error);
+      toast({
+        title: "Erro ao finalizar",
+        description: "Houve um problema ao finalizar a análise. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -515,27 +564,133 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
 
             <div className="flex gap-2">
               <Button 
-                onClick={generatePDFReport} 
+                onClick={previewReport} 
                 variant="outline" 
                 className="flex-1"
-                disabled={isGeneratingReport}
               >
-                {isGeneratingReport ? (
+                <FileText className="h-4 w-4 mr-2" />
+                Visualizar Relatório
+              </Button>
+              <Button 
+                onClick={handleComplete} 
+                className="flex-1"
+                disabled={isCompleting}
+              >
+                {isCompleting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Gerando...
+                    Finalizando...
                   </>
                 ) : (
                   <>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Visualizar Relatório
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Finalizar e Concluir
                   </>
                 )}
               </Button>
-              <Button onClick={onClose} className="flex-1">
-                Finalizar
-              </Button>
             </div>
+
+            {/* Modal de Preview do Relatório */}
+            <Dialog open={showReportPreview} onOpenChange={setShowReportPreview}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Preview do Relatório Médico
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* Preview do Conteúdo do Relatório */}
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="text-center mb-4">
+                      <h2 className="text-xl font-bold text-primary">AURYA</h2>
+                      <p className="text-sm text-muted-foreground">Triagem Médica Inteligente com IA</p>
+                    </div>
+                    
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <h3 className="font-semibold">Paciente:</h3>
+                        <p>{clinicalReport?.patientName}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold">Sinais Vitais:</h3>
+                        <p>FC: {snapshotVitalSigns?.heartRate || 72} BPM | PA: {snapshotVitalSigns?.bloodPressure?.formatted || '120/80'} mmHg</p>
+                        <p>Temp: {snapshotVitalSigns?.temperature || 36.5}°C | SpO2: {snapshotVitalSigns?.oxygenSaturation || 98}%</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold">Urgência:</h3>
+                        <p>{clinicalReport?.overallUrgency?.level} - {clinicalReport?.overallUrgency?.action}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold">Sintomas:</h3>
+                        <p>{clinicalReport?.consolidatedSymptoms?.join(', ') || 'Nenhum sintoma identificado'}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-semibold">Recomendações:</h3>
+                        <ul className="list-disc list-inside">
+                          {clinicalReport?.recommendations?.map((rec: string, index: number) => (
+                            <li key={index}>{rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ações do Preview */}
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={downloadPDFReport} 
+                      variant="default" 
+                      className="flex-1"
+                      disabled={isGeneratingReport}
+                    >
+                      {isGeneratingReport ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Baixar PDF
+                        </>
+                      )}
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: 'Relatório Médico Aurya',
+                            text: `Relatório de triagem médica de ${clinicalReport?.patientName}`,
+                            url: window.location.href
+                          });
+                        }
+                      }}
+                      variant="outline" 
+                      className="flex-1"
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Compartilhar
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => window.print()}
+                      variant="outline" 
+                      className="flex-1"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Imprimir
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </DialogContent>

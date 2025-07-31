@@ -254,6 +254,7 @@ const TriageFlow = () => {
           <ClinicalAnalysisModal
             isOpen={showClinicalModal}
             onClose={() => setShowClinicalModal(false)}
+            onComplete={(data) => handleStepComplete('analysis', data)}
             voiceAnalysis={stepResults.voice}
             facialAnalysis={stepResults.facial}
             anamnesisResults={stepResults.anamnesis}
