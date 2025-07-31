@@ -6,7 +6,6 @@ import TriageFlow from "@/components/medical/TriageFlow";
 import AnamnesisChat from "@/components/medical/AnamnesisChat";
 import DiagnosticResults from "@/components/medical/DiagnosticResults";
 import HealthDataDashboard from "@/components/medical/HealthDataDashboard";
-import AIIntegrationStatus from "@/components/medical/AIIntegrationStatus";
 import heroImage from "@/assets/medical-hero.jpg";
 
 const Index = () => {
@@ -28,12 +27,11 @@ const Index = () => {
       {/* Main Content */}
       <div className="container mx-auto px-6 pb-12">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-card shadow-card">
+          <TabsList className="grid w-full grid-cols-4 bg-card shadow-card">
             <TabsTrigger value="triage">Triagem IA</TabsTrigger>
             <TabsTrigger value="anamnesis">Anamnese</TabsTrigger>
             <TabsTrigger value="dados">Dados Saúde</TabsTrigger>
             <TabsTrigger value="results">Resultados</TabsTrigger>
-            <TabsTrigger value="apis">APIs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="triage" className="space-y-6">
@@ -49,10 +47,6 @@ const Index = () => {
 
           <TabsContent value="dados" className="space-y-6">
             <HealthDataDashboard />
-          </TabsContent>
-
-          <TabsContent value="apis" className="space-y-6">
-            <AIIntegrationStatus />
           </TabsContent>
 
           <TabsContent value="anamnesis" className="space-y-6">

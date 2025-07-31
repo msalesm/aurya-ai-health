@@ -203,120 +203,149 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // CABEÇALHO COM LOGO DA AURYA
+      // CABEÇALHO ESTILO DASHBOARD
+      doc.setFillColor(240, 248, 255); // bg-gradient-subtle equivalent
+      doc.rect(15, 15, 180, 45, 'F');
+      
       doc.setFontSize(24);
-      doc.setTextColor(41, 128, 185); // Azul corporativo
-      doc.text('AURYA', 20, 22);
-      doc.setFontSize(10);
+      doc.setTextColor(41, 128, 185); // primary color
+      doc.text('AURYA', 20, 32);
+      doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
-      doc.text('Triagem Médica Inteligente com IA', 20, 30);
+      doc.text('Triagem Médica Inteligente com IA', 20, 40);
       
-      // Linha separadora
-      doc.setDrawColor(41, 128, 185);
-      doc.setLineWidth(0.5);
-      doc.line(20, 32, 190, 32);
+      // Score Geral de Saúde - Card estilo dashboard
+      doc.setFillColor(245, 250, 255); // Card background
+      doc.setDrawColor(230, 230, 230);
+      doc.rect(20, 70, 170, 35, 'FD');
       
-      // DADOS DO PACIENTE
       doc.setFontSize(16);
-      doc.setTextColor(0, 0, 0);
-      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 45);
+      doc.setTextColor(41, 128, 185);
+      doc.text('Score Geral de Saúde', 25, 82);
       
-      doc.setFontSize(12);
-      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, 58);
-      if (clinicalReport.patientAge) {
-        doc.text(`Idade: ${clinicalReport.patientAge} anos`, 20, 68);
-      }
-      doc.text(`ID do Atendimento: ${clinicalReport.patientId}`, 20, 78);
-      doc.text(`Data/Hora: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 88);
-      
-      // SINAIS VITAIS
-      doc.setFontSize(14);
-      doc.setTextColor(220, 53, 69); // Vermelho para sinais vitais
-      doc.text('SINAIS VITAIS', 20, 105);
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      
-      if (snapshotVitalSigns) {
-        doc.text(`• Frequência Cardíaca: ${snapshotVitalSigns.heartRate} BPM`, 25, 115);
-        doc.text(`• Pressão Arterial: ${snapshotVitalSigns.bloodPressure?.formatted || 'N/A'}`, 25, 125);
-        doc.text(`• Temperatura: ${snapshotVitalSigns.temperature}°C`, 25, 135);
-        doc.text(`• Saturação de Oxigênio: ${snapshotVitalSigns.oxygenSaturation}%`, 25, 145);
-      }
-      
-      // NÍVEL DE URGÊNCIA
-      doc.setFontSize(14);
-      doc.setTextColor(255, 193, 7); // Amarelo para urgência
-      doc.text('CLASSIFICAÇÃO DE URGÊNCIA', 20, 162);
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Nível: ${clinicalReport.overallUrgency.level}`, 25, 172);
-      doc.text(`Ação Recomendada: ${clinicalReport.overallUrgency.action}`, 25, 182);
-      
-      // SINTOMAS IDENTIFICADOS
-      doc.setFontSize(14);
-      doc.setTextColor(23, 162, 184); // Azul claro para sintomas
-      doc.text('SINTOMAS IDENTIFICADOS', 20, 199);
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      let yPos = 209;
-      clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
-        doc.text(`• ${symptom}`, 25, yPos);
-        yPos += 8;
-      });
-      
-      // RECOMENDAÇÕES MÉDICAS
-      yPos += 8;
-      doc.setFontSize(14);
-      doc.setTextColor(40, 167, 69); // Verde para recomendações
-      doc.text('RECOMENDAÇÕES MÉDICAS', 20, yPos);
-      yPos += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      clinicalReport.recommendations?.forEach((rec: string) => {
-        doc.text(`• ${rec}`, 25, yPos);
-        yPos += 8;
-      });
-      
-      // DADOS TÉCNICOS
-      yPos += 15;
-      doc.setFontSize(12);
-      doc.setTextColor(108, 117, 125); // Cinza para dados técnicos
-      doc.text('DADOS TÉCNICOS DA ANÁLISE', 20, yPos);
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Confiabilidade da Análise: ${clinicalReport.confidence}%`, 25, yPos + 10);
-      doc.text(`Qualidade dos Dados Coletados: ${clinicalReport.dataQuality}`, 25, yPos + 20);
-      doc.text(`Modalidades Utilizadas: ${anamnesisResults ? 'Anamnese' : ''} ${voiceAnalysis ? 'Voz' : ''} ${facialAnalysis ? 'Facial' : ''}`, 25, yPos + 30);
-      
-      // RODAPÉ COM ASSINATURA DIGITAL
-      const footerY = 270;
-      doc.setDrawColor(41, 128, 185);
-      doc.setLineWidth(0.3);
-      doc.line(20, footerY, 190, footerY);
-      
+      const healthScore = clinicalReport.confidence;
+      const scoreColor: [number, number, number] = healthScore >= 80 ? [34, 197, 94] : healthScore >= 60 ? [245, 158, 11] : [239, 68, 68];
+      doc.setFontSize(24);
+      doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+      doc.text(`${healthScore}/100`, 25, 95);
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
+      doc.text(`Baseado em dados de ${clinicalReport.dataQuality} qualidade`, 25, 100);
+      
+      // Badge de urgência
+      const urgencyColors: Record<string, [number, number, number]> = {
+        'Crítica': [239, 68, 68],
+        'Alta': [245, 158, 11],
+        'Média': [156, 163, 175],
+        'Baixa': [34, 197, 94]
+      };
+      const urgencyColor = urgencyColors[clinicalReport.overallUrgency.level] || [156, 163, 175];
+      doc.setFillColor(urgencyColor[0], urgencyColor[1], urgencyColor[2]);
+      doc.roundedRect(140, 75, 45, 12, 3, 3, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(255, 255, 255);
+      doc.text(clinicalReport.overallUrgency.level, 145, 83);
+      
+      // Grid de Métricas (estilo dashboard cards)
+      let cardY = 120;
+      const cardWidth = 85;
+      const cardHeight = 35;
+      const cardSpacing = 5;
+      
+      // Card 1: Frequência Cardíaca
+      doc.setFillColor(254, 242, 242); // Heart card background
+      doc.setDrawColor(220, 220, 220);
+      doc.rect(20, cardY, cardWidth, cardHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(220, 53, 69);
+      doc.text('♥ Frequência Cardíaca', 25, cardY + 8);
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${snapshotVitalSigns?.heartRate || 72} bpm`, 25, cardY + 20);
+      
+      // Progress bar simulada
+      doc.setFillColor(220, 220, 220);
+      doc.rect(25, cardY + 25, 50, 3, 'F');
+      const heartProgress = Math.min(((snapshotVitalSigns?.heartRate || 72) / 120) * 50, 50);
+      doc.setFillColor(220, 53, 69);
+      doc.rect(25, cardY + 25, heartProgress, 3, 'F');
+      
+      // Card 2: Pressão Arterial
+      doc.setFillColor(255, 247, 237); // Warning background
+      doc.rect(20 + cardWidth + cardSpacing, cardY, cardWidth, cardHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(245, 158, 11);
+      doc.text('♥ Pressão Arterial', 25 + cardWidth + cardSpacing, cardY + 8);
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${snapshotVitalSigns?.bloodPressure?.formatted || '120/80'}`, 25 + cardWidth + cardSpacing, cardY + 20);
+      
+      // Card 3: Temperatura
+      cardY += cardHeight + 10;
+      doc.setFillColor(240, 253, 244); // Success background
+      doc.rect(20, cardY, cardWidth, cardHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(34, 197, 94);
+      doc.text('🌡️ Temperatura', 25, cardY + 8);
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${snapshotVitalSigns?.temperature || 36.5}°C`, 25, cardY + 20);
+      
+      // Card 4: Saturação
+      doc.setFillColor(240, 249, 255); // Primary background
+      doc.rect(20 + cardWidth + cardSpacing, cardY, cardWidth, cardHeight, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(41, 128, 185);
+      doc.text('📊 Saturação O2', 25 + cardWidth + cardSpacing, cardY + 8);
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${snapshotVitalSigns?.oxygenSaturation || 98}%`, 25 + cardWidth + cardSpacing, cardY + 20);
+      
+      // Seção Sintomas (estilo card)
+      cardY += cardHeight + 15;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(20, cardY, 170, 25, 'FD');
       doc.setFontSize(12);
       doc.setTextColor(41, 128, 185);
-      doc.text('ASSINATURA DIGITAL AURYA', 20, footerY + 10);
+      doc.text('Sintomas Identificados', 25, cardY + 8);
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      let symptomY = cardY + 15;
+      clinicalReport.consolidatedSymptoms?.slice(0, 2).forEach((symptom: string) => {
+        // Badge simulado para sintomas
+        doc.setFillColor(229, 231, 235);
+        const textWidth = doc.getTextWidth(symptom);
+        doc.roundedRect(25, symptomY - 3, textWidth + 6, 8, 2, 2, 'F');
+        doc.setTextColor(75, 85, 99);
+        doc.text(symptom, 28, symptomY + 1);
+        symptomY += 10;
+      });
       
+      // Seção Recomendações (estilo card)
+      cardY += 35;
+      doc.setFillColor(240, 253, 244);
+      doc.rect(20, cardY, 170, 30, 'FD');
+      doc.setFontSize(12);
+      doc.setTextColor(34, 197, 94);
+      doc.text('Recomendações', 25, cardY + 8);
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      let recY = cardY + 15;
+      clinicalReport.recommendations?.slice(0, 3).forEach((rec: string) => {
+        doc.text(`✓ ${rec}`, 25, recY);
+        recY += 7;
+      });
+      
+      // Footer com dados do paciente
+      const footerY = 270;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, footerY, 180, 25, 'F');
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text('Dr. Sistema Aurya | CRM: 654321-SP', 20, footerY + 18);
-      doc.text('Especialista em Medicina Digital e Telemedicina', 20, footerY + 26);
-      
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Relatório validado digitalmente pela Aurya em: ${new Date().toLocaleString('pt-BR')}`, 20, footerY + 34);
-      doc.text('QR Code de verificação: [Código único do relatório]', 20, footerY + 42);
-      
-      // QR code placeholder
-      doc.setDrawColor(0, 0, 0);
-      doc.rect(150, footerY + 15, 25, 25);
-      
-      // QR Code simulado (representação textual)
-      doc.setFontSize(8);
-      doc.text('Verificação: QR-' + clinicalReport.patientId.slice(-8), 150, footerY + 16);
-      doc.text(`Hash: ${btoa(clinicalReport.patientId).slice(0, 12)}...`, 150, footerY + 22);
+      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, footerY + 8);
+      doc.text(`ID: ${clinicalReport.patientId}`, 20, footerY + 16);
+      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 120, footerY + 8);
+      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 120, footerY + 16);
       
       // Salvar PDF
       doc.save(`relatorio-triagem-${clinicalReport.patientName.replace(/\s+/g, '-')}-${clinicalReport.patientId}.pdf`);

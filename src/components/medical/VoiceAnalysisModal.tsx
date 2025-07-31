@@ -180,7 +180,7 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             <div className="space-y-4 p-4 bg-muted rounded-lg">
               <h3 className="font-semibold">Resultado da Análise:</h3>
               
-              {/* Métricas Básicas */}
+              {/* Métricas Clínicas */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-medium">Estado Emocional:</p>
@@ -200,10 +200,10 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
                 </div>
               </div>
 
-              {/* Métricas Avançadas (se disponíveis) */}
+              {/* Análise Detalhada */}
               {analysisResult.advancedMetrics && (
                 <div className="border-t pt-3 space-y-3">
-                  <h4 className="font-medium text-sm">Análise Avançada:</h4>
+                  <h4 className="font-medium text-sm">Análise Detalhada:</h4>
                   
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
@@ -224,9 +224,9 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
                     </div>
                   </div>
 
-                  {/* Indicadores Emocionais */}
+                  {/* Indicadores Clínicos */}
                   <div className="space-y-2">
-                    <p className="font-medium text-xs">Indicadores Emocionais:</p>
+                    <p className="font-medium text-xs">Indicadores Clínicos:</p>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex justify-between">
                         <span>Estresse:</span>
