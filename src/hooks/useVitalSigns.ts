@@ -22,6 +22,7 @@ export interface VitalSignsHook {
   stopMonitoring: () => void;
   updateFromFacialAnalysis: (facialData: any) => void;
   updateFromVoiceAnalysis: (voiceData: any) => void;
+  captureVitalSignsSnapshot: () => VitalSigns;
   error: string | null;
 }
 
@@ -128,6 +129,20 @@ export const useVitalSigns = (): VitalSignsHook => {
     }
   }, []);
 
+  const captureVitalSignsSnapshot = useCallback(() => {
+    // Para o monitoramento contínuo e retorna os valores atuais
+    if (monitoringInterval) {
+      clearInterval(monitoringInterval);
+      setMonitoringInterval(null);
+    }
+    setIsMonitoring(false);
+    
+    return {
+      ...vitalSigns,
+      timestamp: new Date().toISOString()
+    };
+  }, [vitalSigns, monitoringInterval]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -155,6 +170,7 @@ export const useVitalSigns = (): VitalSignsHook => {
     stopMonitoring,
     updateFromFacialAnalysis,
     updateFromVoiceAnalysis,
+    captureVitalSignsSnapshot,
     error
   };
 };

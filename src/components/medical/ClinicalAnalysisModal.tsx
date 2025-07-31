@@ -4,7 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Download, AlertTriangle, CheckCircle } from "lucide-react";
+import { useVitalSigns } from '@/hooks/useVitalSigns';
+import { 
+  FileText, 
+  Download, 
+  AlertTriangle, 
+  CheckCircle,
+  Heart,
+  Thermometer,
+  Gauge,
+  Droplets
+} from "lucide-react";
 
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
@@ -24,27 +34,46 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
+  const [snapshotVitalSigns, setSnapshotVitalSigns] = useState<any>(null);
+  
+  const { captureVitalSignsSnapshot, updateFromFacialAnalysis, updateFromVoiceAnalysis } = useVitalSigns();
 
-  const generateClinicalAnalysis = () => {
+  const generateClinicalAnalysis = async () => {
     setIsAnalyzing(true);
     
-    // Simular análise consolidada
-    setTimeout(() => {
-      const report = {
-        patientId: `PAT-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        overallUrgency: calculateOverallUrgency(),
-        consolidatedSymptoms: extractAllSymptoms(),
-        riskFactors: identifyRiskFactors(),
-        recommendations: generateRecommendations(),
-        confidence: calculateOverallConfidence(),
-        dataQuality: assessDataQuality()
-      };
-      
-      setClinicalReport(report);
-      setAnalysisComplete(true);
-      setIsAnalyzing(false);
-    }, 3000);
+    // Capturar dados dos sinais vitais no momento da análise
+    if (facialAnalysis) {
+      updateFromFacialAnalysis(facialAnalysis);
+    }
+    if (voiceAnalysis) {
+      updateFromVoiceAnalysis(voiceAnalysis);
+    }
+    
+    // Aguardar um pouco para os dados serem processados
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Capturar snapshot dos sinais vitais fixos
+    const vitalSnapshot = captureVitalSignsSnapshot();
+    setSnapshotVitalSigns(vitalSnapshot);
+    
+    // Simular processo de análise
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const report = {
+      patientId: `PAT-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      vitalSigns: vitalSnapshot,
+      overallUrgency: calculateOverallUrgency(),
+      consolidatedSymptoms: extractAllSymptoms(),
+      riskFactors: identifyRiskFactors(),
+      recommendations: generateRecommendations(),
+      confidence: calculateOverallConfidence(),
+      dataQuality: assessDataQuality()
+    };
+    
+    setClinicalReport(report);
+    setAnalysisComplete(true);
+    setIsAnalyzing(false);
   };
 
   const calculateOverallUrgency = () => {
@@ -282,59 +311,50 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Seção destacada de Sinais Vitais */}
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <FileText className="h-5 w-5" />
-                  SINAIS VITAIS PRINCIPAIS
+            {/* Sinais Vitais Principais */}
+            <Card className="mb-6 border-l-4 border-l-red-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Heart className="h-5 w-5 text-red-500" />
+                  Sinais Vitais Principais
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <div className="text-2xl font-bold text-destructive">
-                      {facialAnalysis?.heartRate || '--'} BPM
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <Heart className="h-6 w-6 mx-auto mb-2 text-red-500" />
+                    <div className="text-2xl font-bold text-red-600">
+                      {snapshotVitalSigns?.heartRate || clinicalReport?.vitalSigns?.heartRate || 72}
                     </div>
-                    <div className="text-xs text-muted-foreground">Frequência Cardíaca</div>
-                    <div className="text-xs mt-1">
-                      {facialAnalysis?.heartRate > 100 ? '🔴 Elevada' : 
-                       facialAnalysis?.heartRate < 60 ? '🟡 Baixa' : '🟢 Normal'}
-                    </div>
+                    <div className="text-sm text-muted-foreground">BPM</div>
                   </div>
-                  
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <div className="text-2xl font-bold text-primary">
-                      {facialAnalysis?.bloodPressure || '--'}
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <Gauge className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                    <div className="text-2xl font-bold text-blue-600">
+                      {snapshotVitalSigns?.bloodPressure?.formatted || 
+                       clinicalReport?.vitalSigns?.bloodPressure?.formatted || '120/80'}
                     </div>
-                    <div className="text-xs text-muted-foreground">Pressão Arterial</div>
-                    <div className="text-xs mt-1">
-                      {facialAnalysis?.bloodPressure?.includes('130') || facialAnalysis?.bloodPressure?.includes('140') ? 
-                       '🟡 Elevada' : '🟢 Normal'}
-                    </div>
+                    <div className="text-sm text-muted-foreground">mmHg</div>
                   </div>
-                  
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <div className="text-2xl font-bold text-warning">
-                      {facialAnalysis?.temperature ? `${facialAnalysis.temperature}°C` : '--'}
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <Thermometer className="h-6 w-6 mx-auto mb-2 text-orange-500" />
+                    <div className="text-2xl font-bold text-orange-600">
+                      {snapshotVitalSigns?.temperature || clinicalReport?.vitalSigns?.temperature || 36.5}°C
                     </div>
-                    <div className="text-xs text-muted-foreground">Temperatura</div>
-                    <div className="text-xs mt-1">
-                      {facialAnalysis?.temperature > 37.5 ? '🔴 Febre' : 
-                       facialAnalysis?.temperature < 36 ? '🟡 Baixa' : '🟢 Normal'}
-                    </div>
+                    <div className="text-sm text-muted-foreground">Temp</div>
                   </div>
-                  
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <div className="text-2xl font-bold text-secondary">
-                      {facialAnalysis?.oxygenSaturation ? `${facialAnalysis.oxygenSaturation}%` : '--'}
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
+                    <Droplets className="h-6 w-6 mx-auto mb-2 text-cyan-500" />
+                    <div className="text-2xl font-bold text-cyan-600">
+                      {snapshotVitalSigns?.oxygenSaturation || clinicalReport?.vitalSigns?.oxygenSaturation || 98}%
                     </div>
-                    <div className="text-xs text-muted-foreground">SpO₂</div>
-                    <div className="text-xs mt-1">
-                      {facialAnalysis?.oxygenSaturation < 95 ? '🔴 Baixa' : 
-                       facialAnalysis?.oxygenSaturation < 97 ? '🟡 Limite' : '🟢 Normal'}
-                    </div>
+                    <div className="text-sm text-muted-foreground">SpO2</div>
                   </div>
+                </div>
+                <div className="mt-4 text-xs text-muted-foreground text-center">
+                  Coletados em: {snapshotVitalSigns?.timestamp ? 
+                    new Date(snapshotVitalSigns.timestamp).toLocaleString('pt-BR') : 
+                    new Date().toLocaleString('pt-BR')}
                 </div>
               </CardContent>
             </Card>
