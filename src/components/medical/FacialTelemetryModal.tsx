@@ -24,6 +24,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   const [stressLevel, setStressLevel] = useState(0);
   const [faceDetected, setFaceDetected] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
   const analysisProvider = 'hybrid'; // Fixed as hybrid
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -176,8 +177,14 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       };
 
       console.log('Telemetria híbrida completa:', telemetryData);
-      onComplete(telemetryData);
-      onClose();
+      setIsComplete(true);
+      setIsAnalyzing(false);
+      
+      // Auto-fechar após 2 segundos e enviar dados
+      setTimeout(() => {
+        onComplete(telemetryData);
+        onClose();
+      }, 2000);
     } catch (error) {
       console.error('Erro ao concluir telemetria:', error);
       setIsAnalyzing(false);
@@ -318,7 +325,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
           )}
 
           {/* Loading de análise */}
-          {isAnalyzing && (
+          {isAnalyzing && !isComplete && (
             <div className="text-center space-y-4 py-4">
               <div className="animate-spin w-6 h-6 md:w-8 md:h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-xs md:text-sm text-muted-foreground">
@@ -327,42 +334,49 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             </div>
           )}
 
-          {/* Controles - Sempre visíveis e touch-friendly */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-            {!isRecording && !isAnalyzing ? (
+          {/* Análise concluída */}
+          {isComplete && (
+            <div className="text-center space-y-4 py-4">
+              <CheckCircle className="w-12 h-12 text-success mx-auto" />
+              <p className="text-sm font-medium text-success">
+                Análise facial concluída com sucesso!
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Fechando automaticamente...
+              </p>
+            </div>
+          )}
+
+          {/* Controles - Apenas quando necessário */}
+          {!isComplete && (
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              {!isRecording && !isAnalyzing ? (
+                <Button 
+                  onClick={startTelemetry} 
+                  className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Iniciar Análise (15s)
+                </Button>
+              ) : isRecording ? (
+                <Button 
+                  onClick={completeTelemetry} 
+                  variant="destructive" 
+                  className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+                >
+                  Parar Análise
+                </Button>
+              ) : null}
+              
               <Button 
-                onClick={startTelemetry} 
-                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
+                onClick={onClose} 
+                variant="outline"
+                className="w-full sm:w-auto min-h-[44px] text-sm md:text-base"
               >
-                <Camera className="h-4 w-4 mr-2" />
-                Iniciar Análise (15s)
+                Fechar
               </Button>
-            ) : isRecording ? (
-              <Button 
-                onClick={completeTelemetry} 
-                variant="destructive" 
-                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
-              >
-                Parar Análise
-              </Button>
-            ) : isAnalyzing ? (
-              <Button 
-                onClick={completeTelemetry} 
-                className="w-full sm:flex-1 min-h-[44px] text-sm md:text-base"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Concluir Análise
-              </Button>
-            ) : null}
-            
-            <Button 
-              onClick={onClose} 
-              variant="outline"
-              className="w-full sm:w-auto min-h-[44px] text-sm md:text-base"
-            >
-              Fechar
-            </Button>
-          </div>
+            </div>
+          )}
 
           {/* Instruções - Texto menor em mobile */}
           <div className="text-xs md:text-sm text-muted-foreground text-center px-2">
