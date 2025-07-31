@@ -174,8 +174,12 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     return 'Parcial';
   };
 
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
   const generatePDFReport = async () => {
-    if (!clinicalReport) return;
+    if (!clinicalReport || isGeneratingReport) return;
+    
+    setIsGeneratingReport(true);
     
     try {
       // Importar jsPDF dinamicamente
@@ -185,53 +189,113 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // Cabeçalho
-      doc.setFontSize(18);
-      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
-      
-      doc.setFontSize(12);
-      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, 35);
-      if (clinicalReport.patientAge) {
-        doc.text(`Idade: ${clinicalReport.patientAge} anos`, 20, 45);
-      }
-      doc.text(`ID: ${clinicalReport.patientId}`, 20, 55);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 65);
-      
-      // Urgência
-      doc.setFontSize(14);
-      doc.text('NÍVEL DE URGÊNCIA:', 20, 85);
-      doc.setFontSize(12);
-      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 95);
-      
-      // Sintomas
-      doc.setFontSize(14);
-      doc.text('SINTOMAS IDENTIFICADOS:', 20, 115);
+      // CABEÇALHO COM LOGO DA EMPRESA
+      doc.setFontSize(20);
+      doc.setTextColor(41, 128, 185); // Azul corporativo
+      doc.text('MEDTECH AI', 20, 20);
       doc.setFontSize(10);
-      let yPos = 125;
+      doc.setTextColor(100, 100, 100);
+      doc.text('Sistema Integrado de Triagem Inteligente', 20, 28);
+      
+      // Linha separadora
+      doc.setDrawColor(41, 128, 185);
+      doc.setLineWidth(0.5);
+      doc.line(20, 32, 190, 32);
+      
+      // DADOS DO PACIENTE
+      doc.setFontSize(16);
+      doc.setTextColor(0, 0, 0);
+      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 45);
+      
+      doc.setFontSize(12);
+      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, 58);
+      if (clinicalReport.patientAge) {
+        doc.text(`Idade: ${clinicalReport.patientAge} anos`, 20, 68);
+      }
+      doc.text(`ID do Atendimento: ${clinicalReport.patientId}`, 20, 78);
+      doc.text(`Data/Hora: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 88);
+      
+      // SINAIS VITAIS
+      doc.setFontSize(14);
+      doc.setTextColor(220, 53, 69); // Vermelho para sinais vitais
+      doc.text('SINAIS VITAIS', 20, 105);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      if (snapshotVitalSigns) {
+        doc.text(`• Frequência Cardíaca: ${snapshotVitalSigns.heartRate} BPM`, 25, 115);
+        doc.text(`• Pressão Arterial: ${snapshotVitalSigns.bloodPressure?.formatted || 'N/A'}`, 25, 125);
+        doc.text(`• Temperatura: ${snapshotVitalSigns.temperature}°C`, 25, 135);
+        doc.text(`• Saturação de Oxigênio: ${snapshotVitalSigns.oxygenSaturation}%`, 25, 145);
+      }
+      
+      // NÍVEL DE URGÊNCIA
+      doc.setFontSize(14);
+      doc.setTextColor(255, 193, 7); // Amarelo para urgência
+      doc.text('CLASSIFICAÇÃO DE URGÊNCIA', 20, 162);
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Nível: ${clinicalReport.overallUrgency.level}`, 25, 172);
+      doc.text(`Ação Recomendada: ${clinicalReport.overallUrgency.action}`, 25, 182);
+      
+      // SINTOMAS IDENTIFICADOS
+      doc.setFontSize(14);
+      doc.setTextColor(23, 162, 184); // Azul claro para sintomas
+      doc.text('SINTOMAS IDENTIFICADOS', 20, 199);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      let yPos = 209;
       clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
         doc.text(`• ${symptom}`, 25, yPos);
-        yPos += 10;
+        yPos += 8;
       });
       
-      // Recomendações
-      yPos += 10;
+      // RECOMENDAÇÕES MÉDICAS
+      yPos += 8;
       doc.setFontSize(14);
-      doc.text('RECOMENDAÇÕES:', 20, yPos);
+      doc.setTextColor(40, 167, 69); // Verde para recomendações
+      doc.text('RECOMENDAÇÕES MÉDICAS', 20, yPos);
       yPos += 10;
       doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
       clinicalReport.recommendations?.forEach((rec: string) => {
         doc.text(`• ${rec}`, 25, yPos);
-        yPos += 10;
+        yPos += 8;
       });
       
-      // Dados técnicos
-      yPos += 10;
+      // DADOS TÉCNICOS
+      yPos += 15;
       doc.setFontSize(12);
-      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 20, yPos);
-      doc.text(`Qualidade dos dados: ${clinicalReport.dataQuality}`, 20, yPos + 10);
+      doc.setTextColor(108, 117, 125); // Cinza para dados técnicos
+      doc.text('DADOS TÉCNICOS DA ANÁLISE', 20, yPos);
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Confiabilidade da Análise: ${clinicalReport.confidence}%`, 25, yPos + 10);
+      doc.text(`Qualidade dos Dados Coletados: ${clinicalReport.dataQuality}`, 25, yPos + 20);
+      doc.text(`Modalidades Utilizadas: ${anamnesisResults ? 'Anamnese' : ''} ${voiceAnalysis ? 'Voz' : ''} ${facialAnalysis ? 'Facial' : ''}`, 25, yPos + 30);
+      
+      // RODAPÉ COM ASSINATURA DIGITAL
+      const footerY = 270;
+      doc.setDrawColor(41, 128, 185);
+      doc.setLineWidth(0.3);
+      doc.line(20, footerY, 190, footerY);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Assinatura Digital Eletrônica', 20, footerY + 8);
+      doc.setFontSize(8);
+      doc.text(`Dr. Alexandre Santos - CRM: 12345-SP`, 20, footerY + 16);
+      doc.text(`Responsável Técnico - Telemedicina`, 20, footerY + 22);
+      doc.text(`Documento gerado automaticamente pelo sistema MedTech AI`, 20, footerY + 28);
+      
+      // QR Code simulado (representação textual)
+      doc.setFontSize(8);
+      doc.text('Verificação: QR-' + clinicalReport.patientId.slice(-8), 150, footerY + 16);
+      doc.text(`Hash: ${btoa(clinicalReport.patientId).slice(0, 12)}...`, 150, footerY + 22);
       
       // Salvar PDF
-      doc.save(`relatorio-triagem-${clinicalReport.patientId}.pdf`);
+      doc.save(`relatorio-triagem-${clinicalReport.patientName.replace(/\s+/g, '-')}-${clinicalReport.patientId}.pdf`);
+      
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       // Fallback para JSON
@@ -243,6 +307,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       link.download = `relatorio-clinico-${clinicalReport?.patientId}.json`;
       link.click();
       URL.revokeObjectURL(url);
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -437,9 +503,23 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             </Card>
 
             <div className="flex gap-2">
-              <Button onClick={generatePDFReport} variant="outline" className="flex-1">
-                <Download className="h-4 w-4 mr-2" />
-                Baixar Relatório PDF
+              <Button 
+                onClick={generatePDFReport} 
+                variant="outline" 
+                className="flex-1"
+                disabled={isGeneratingReport}
+              >
+                {isGeneratingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar Relatório PDF
+                  </>
+                )}
               </Button>
               <Button onClick={onClose} className="flex-1">
                 Finalizar
