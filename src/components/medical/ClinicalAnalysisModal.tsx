@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
+import { useCorrelationAnalysis } from '@/hooks/useCorrelationAnalysis';
 import { toast } from '@/hooks/use-toast';
 import { 
   FileText, 
@@ -55,27 +56,107 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [isCompleting, setIsCompleting] = useState(false);
   
   const { captureVitalSignsSnapshot, updateFromFacialAnalysis, updateFromVoiceAnalysis } = useVitalSigns();
+  
+  // Use correlation analysis hook
+  const {
+    isAnalyzing: isCorrelating,
+    consolidatedResult,
+    outliers,
+    error: correlationError,
+    performCorrelationAnalysis
+  } = useCorrelationAnalysis();
 
   const generateClinicalAnalysis = async () => {
     setIsAnalyzing(true);
     
-    // Capturar dados dos sinais vitais no momento da análise
-    if (facialAnalysis) {
-      updateFromFacialAnalysis(facialAnalysis);
+    try {
+      // Capturar dados dos sinais vitais no momento da análise
+      if (facialAnalysis) {
+        updateFromFacialAnalysis(facialAnalysis);
+      }
+      if (voiceAnalysis) {
+        updateFromVoiceAnalysis(voiceAnalysis);
+      }
+      
+      // Aguardar um pouco para os dados serem processados
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Capturar snapshot dos sinais vitais fixos
+      const vitalSnapshot = captureVitalSignsSnapshot();
+      setSnapshotVitalSigns(vitalSnapshot);
+      
+      // Perform cross-modal correlation analysis
+      const correlationResult = await performCorrelationAnalysis(
+        facialAnalysis,
+        voiceAnalysis,
+        anamnesisResults
+      );
+      
+      if (!correlationResult) {
+        throw new Error('Falha na análise de correlação');
+      }
+      
+      const report = {
+        patientId: `PAT-${Date.now()}`,
+        patientName: patientData?.fullName || 'Paciente Anônimo',
+        patientAge: patientData?.age,
+        timestamp: new Date().toISOString(),
+        vitalSigns: vitalSnapshot,
+        
+        // Use consolidated analysis from correlation
+        overallUrgency: correlationResult.overallUrgency,
+        consolidatedSymptoms: correlationResult.combinedSymptoms,
+        riskFactors: correlationResult.riskFactors,
+        recommendations: correlationResult.recommendations,
+        confidence: correlationResult.reliability.score,
+        dataQuality: correlationResult.reliability.dataQuality,
+        
+        // Include correlation data
+        crossModalCorrelation: correlationResult.crossModalData,
+        biometricCorrelation: correlationResult.biometricCorrelation,
+        outliers: outliers,
+        correlationError: correlationError,
+        
+        // Legacy fields for compatibility
+        hasConversationalData: !!anamnesisResults?.conversationalData,
+        enhancedWithCorrelation: true
+      };
+      
+      setClinicalReport(report);
+      setAnalysisComplete(true);
+      
+      // Show correlation insights
+      if (correlationResult.crossModalData.reliability === 'high') {
+        toast({
+          title: "Alta Confiabilidade",
+          description: `Correlação de ${correlationResult.crossModalData.consistencyScore}% entre as análises.`,
+        });
+      } else if (correlationResult.crossModalData.conflictingMetrics.length > 0) {
+        toast({
+          title: "Métricas Conflitantes Detectadas",
+          description: correlationResult.crossModalData.conflictingMetrics[0],
+          variant: "destructive"
+        });
+      }
+      
+    } catch (error) {
+      console.error('Erro na análise correlacionada:', error);
+      toast({
+        title: "Erro na Análise",
+        description: "Usando análise básica devido a erro na correlação.",
+        variant: "destructive"
+      });
+      
+      // Fallback to basic analysis
+      await generateBasicAnalysis();
+    } finally {
+      setIsAnalyzing(false);
     }
-    if (voiceAnalysis) {
-      updateFromVoiceAnalysis(voiceAnalysis);
-    }
-    
-    // Aguardar um pouco para os dados serem processados
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Capturar snapshot dos sinais vitais fixos
+  };
+
+  const generateBasicAnalysis = async () => {
     const vitalSnapshot = captureVitalSignsSnapshot();
     setSnapshotVitalSigns(vitalSnapshot);
-    
-    // Simular processo de análise
-    await new Promise(resolve => setTimeout(resolve, 2000));
     
     const report = {
       patientId: `PAT-${Date.now()}`,
@@ -89,12 +170,12 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       recommendations: generateRecommendations(),
       confidence: calculateOverallConfidence(),
       dataQuality: assessDataQuality(),
-      hasConversationalData: !!anamnesisResults?.conversationalData
+      hasConversationalData: !!anamnesisResults?.conversationalData,
+      enhancedWithCorrelation: false
     };
     
     setClinicalReport(report);
     setAnalysisComplete(true);
-    setIsAnalyzing(false);
   };
 
   const calculateOverallUrgency = () => {
@@ -463,18 +544,27 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             <div className="text-center">
               <Button 
                 onClick={generateClinicalAnalysis}
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || isCorrelating}
                 size="lg"
               >
-                {isAnalyzing ? 'Analisando...' : 'Gerar Análise Consolidada'}
+                {(isAnalyzing || isCorrelating) ? 'Analisando...' : 'Gerar Análise Multi-Modal'}
               </Button>
               
-              {isAnalyzing && (
+              {(isAnalyzing || isCorrelating) && (
                 <div className="mt-4">
-                  <Progress value={66} className="w-full" />
+                  <Progress value={isCorrelating ? 30 : 66} className="w-full" />
                   <p className="text-sm text-muted-foreground mt-2">
-                    Consolidando dados e gerando relatório clínico...
+                    {isCorrelating ? 
+                      'Realizando correlação cross-modal...' : 
+                      'Consolidando dados e gerando relatório clínico...'
+                    }
                   </p>
+                </div>
+              )}
+              
+              {correlationError && (
+                <div className="mt-2 text-sm text-destructive">
+                  Erro na correlação: {correlationError}
                 </div>
               )}
             </div>

@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Brain, ArrowRight, ArrowLeft, MessageCircle } from "lucide-react";
+import { Brain, ArrowRight, ArrowLeft, MessageCircle, SkipForward } from "lucide-react";
 import AIConversationModal from "./AIConversationModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useIntelligentQuestioning } from "@/hooks/useIntelligentQuestioning";
 
 interface PatientData {
   fullName: string;
@@ -18,6 +19,8 @@ interface AnamnesisModalProps {
   onClose: () => void;
   onComplete: (analysis: any) => void;
   patientData?: PatientData | null;
+  facialData?: any;
+  voiceData?: any;
 }
 
 interface Question {
@@ -28,155 +31,104 @@ interface Question {
   category: string;
 }
 
-const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisModalProps) => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
+const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData, facialData, voiceData }: AnamnesisModalProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [showAIConversation, setShowAIConversation] = useState(false);
+  const [useIntelligentMode, setUseIntelligentMode] = useState(true);
 
-  const questions: Question[] = [
-    {
-      id: 'main_symptom',
-      text: 'Qual é o seu principal sintoma hoje?',
-      type: 'multiple',
-      options: ['Dor', 'Febre', 'Náusea', 'Fadiga', 'Ansiedade', 'Outro'],
-      category: 'sintomas'
-    },
-    {
-      id: 'symptom_duration',
-      text: 'Há quanto tempo você sente isso?',
-      type: 'multiple',
-      options: ['Menos de 1 dia', '1-3 dias', '1 semana', 'Mais de 1 semana'],
-      category: 'tempo'
-    },
-    {
-      id: 'pain_scale',
-      text: 'Em uma escala de 0 a 10, qual a intensidade do desconforto?',
-      type: 'scale',
-      category: 'intensidade'
-    },
-    {
-      id: 'fever',
-      text: 'Você tem febre?',
-      type: 'yes_no',
-      category: 'sintomas'
-    },
-    {
-      id: 'breathing',
-      text: 'Tem dificuldade para respirar?',
-      type: 'yes_no',
-      category: 'respiratorio'
-    },
-    {
-      id: 'chest_pain',
-      text: 'Sente dor no peito?',
-      type: 'yes_no',
-      category: 'cardiovascular'
-    },
-    {
-      id: 'medications',
-      text: 'Está tomando algum medicamento?',
-      type: 'yes_no',
-      category: 'medicamentos'
-    },
-    {
-      id: 'allergies',
-      text: 'Tem alguma alergia conhecida?',
-      type: 'yes_no',
-      category: 'alergias'
-    },
-    {
-      id: 'chronic_conditions',
-      text: 'Tem alguma condição crônica (diabetes, hipertensão, etc.)?',
-      type: 'yes_no',
-      category: 'historico'
-    },
-    {
-      id: 'urgency_feeling',
-      text: 'Você sente que precisa de atendimento médico urgente?',
-      type: 'yes_no',
-      category: 'urgencia'
+  // Intelligent questioning hook
+  const {
+    currentQuestion,
+    answers,
+    isGeneratingQuestion,
+    isComplete,
+    urgencyScore,
+    error: questioningError,
+    questionCount,
+    answerQuestion,
+    skipQuestion,
+    resetQuestioning,
+    getFinalAnalysis
+  } = useIntelligentQuestioning({ 
+    facialData, 
+    voiceData, 
+    patientData 
+  });
+
+  // Reset questioning when modal opens
+  useEffect(() => {
+    if (isOpen && !currentQuestion && !isComplete) {
+      resetQuestioning();
     }
-  ];
+  }, [isOpen, resetQuestioning, currentQuestion, isComplete]);
 
-  const handleAnswer = (answer: any) => {
-    const newAnswers = { ...answers, [questions[currentQuestion].id]: answer };
-    setAnswers(newAnswers);
-
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      analyzeAnswers(newAnswers);
-    }
+  const handleAnswer = async (answer: any) => {
+    await answerQuestion(answer);
   };
 
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
-    }
+  const handleSkipQuestion = () => {
+    skipQuestion();
   };
 
-  const analyzeAnswers = async (finalAnswers: Record<string, any>) => {
+  const performFinalAnalysis = async () => {
     setIsAnalyzing(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('medical-anamnesis', {
-        body: {
-          message: `Análise estruturada baseada em respostas objetivas: ${JSON.stringify(finalAnswers)}`,
-          userId: 'anon-user',
-          conversationHistory: [],
-          isStructuredAnalysis: true
+      // Get final analysis from intelligent questioning
+      const finalResult = await getFinalAnalysis();
+      
+      setAnalysisResult({
+        ...finalResult,
+        intelligentMode: true,
+        facialData,
+        voiceData,
+        correlationData: {
+          heartRateFromFacial: facialData?.heartRate,
+          stressFromVoice: voiceData?.stressLevel,
+          urgencyFromAnamnesis: urgencyScore
         }
       });
-
-      if (error) throw error;
-
-      // Calcular score de urgência baseado nas respostas
-      const urgencyScore = calculateUrgencyScore(finalAnswers);
-      
-      const result = {
-        ...data,
-        structuredAnswers: finalAnswers,
-        urgencyScore,
-        urgencyLevel: getUrgencyLevel(urgencyScore),
-        recommendations: generateRecommendations(finalAnswers, urgencyScore)
-      };
-
-      setAnalysisResult(result);
     } catch (error) {
-      console.error('Erro na análise:', error);
+      console.error('Erro na análise final:', error);
       
-      // Fallback para análise local
-      const urgencyScore = calculateUrgencyScore(finalAnswers);
+      // Fallback analysis
       setAnalysisResult({
-        structuredAnswers: finalAnswers,
+        answers,
         urgencyScore,
         urgencyLevel: getUrgencyLevel(urgencyScore),
-        recommendations: generateRecommendations(finalAnswers, urgencyScore),
-        response: "Análise concluída com base nas respostas fornecidas."
+        recommendations: generateBasicRecommendations(urgencyScore),
+        response: "Análise concluída com base nas respostas fornecidas.",
+        questionCount,
+        intelligentMode: true
       });
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  // Auto-analyze when questioning is complete
+  useEffect(() => {
+    if (isComplete && !analysisResult && !isAnalyzing) {
+      performFinalAnalysis();
+    }
+  }, [isComplete, analysisResult, isAnalyzing]);
+
   const calculateUrgencyScore = (answers: Record<string, any>): number => {
+    // Use the intelligent questioning urgency score when available
+    if (urgencyScore > 0) return urgencyScore;
+    
     let score = 0;
     
     // Sintomas de alta prioridade
-    if (answers.breathing === 'sim') score += 30;
+    if (answers.breathing_difficulty === 'sim') score += 30;
     if (answers.chest_pain === 'sim') score += 25;
-    if (answers.urgency_feeling === 'sim') score += 20;
-    if (answers.fever === 'sim') score += 15;
+    if (answers.pain_presence === 'sim') score += 15;
     
-    // Intensidade da dor
-    if (answers.pain_scale >= 8) score += 20;
-    else if (answers.pain_scale >= 6) score += 10;
-    else if (answers.pain_scale >= 4) score += 5;
-    
-    // Duração dos sintomas
-    if (answers.symptom_duration === 'Menos de 1 dia' && score > 20) score += 10;
+    // Text analysis
+    const complaint = answers.chief_complaint?.toLowerCase() || '';
+    if (complaint.includes('dor forte')) score += 15;
+    if (complaint.includes('febre')) score += 10;
     
     return Math.min(score, 100);
   };
@@ -188,7 +140,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
     return 'baixa';
   };
 
-  const generateRecommendations = (answers: Record<string, any>, score: number): string[] => {
+  const generateBasicRecommendations = (score: number): string[] => {
     const recommendations = [];
     
     if (score >= 70) {
@@ -205,12 +157,13 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
       recommendations.push('Mantenha hábitos saudáveis');
     }
     
-    if (answers.medications === 'sim') {
-      recommendations.push('Informe todos os medicamentos ao médico');
+    // Add correlation-based recommendations
+    if (facialData?.heartRate > 100) {
+      recommendations.push('Monitore frequência cardíaca elevada');
     }
     
-    if (answers.chronic_conditions === 'sim') {
-      recommendations.push('Considere relação com condições pré-existentes');
+    if (voiceData?.stressLevel > 7) {
+      recommendations.push('Considere técnicas de redução de estresse');
     }
     
     return recommendations;
@@ -224,22 +177,28 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
   };
 
   const renderQuestion = () => {
-    const question = questions[currentQuestion];
+    if (!currentQuestion) return null;
     
     return (
       <div className="space-y-6">
         <div className="text-center space-y-2">
           <Badge variant="secondary" className="mb-2">
-            {question.category}
+            {currentQuestion.category}
           </Badge>
-          <h3 className="text-lg font-semibold">{question.text}</h3>
+          <h3 className="text-lg font-semibold">{currentQuestion.text}</h3>
           <p className="text-sm text-muted-foreground">
-            Pergunta {currentQuestion + 1} de {questions.length}
+            Pergunta {questionCount} • Urgência: {urgencyScore}/100
           </p>
+          
+          {facialData?.heartRate && (
+            <div className="text-xs text-muted-foreground">
+              FC: {facialData.heartRate}bpm | Estresse Vocal: {voiceData?.stressLevel || 'N/A'}/10
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
-          {question.type === 'yes_no' && (
+          {currentQuestion.type === 'yes_no' && (
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
@@ -258,9 +217,9 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
             </div>
           )}
 
-          {question.type === 'multiple' && question.options && (
+          {currentQuestion.type === 'multiple' && currentQuestion.options && (
             <div className="space-y-2">
-              {question.options.map((option, index) => (
+              {currentQuestion.options.map((option, index) => (
                 <Button
                   key={index}
                   variant="outline"
@@ -273,7 +232,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
             </div>
           )}
 
-          {question.type === 'scale' && (
+          {currentQuestion.type === 'scale' && (
             <div className="space-y-4">
               <div className="grid grid-cols-11 gap-1">
                 {Array.from({ length: 11 }, (_, i) => (
@@ -281,16 +240,37 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
                     key={i}
                     variant="outline"
                     onClick={() => handleAnswer(i)}
-                    className="h-12 p-0"
+                    className="h-12 p-0 text-xs"
                   >
                     {i}
                   </Button>
                 ))}
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Sem dor</span>
-                <span>Dor máxima</span>
+                <span>Mínimo</span>
+                <span>Máximo</span>
               </div>
+            </div>
+          )}
+
+          {currentQuestion.type === 'text' && (
+            <div className="space-y-3">
+              <textarea 
+                className="w-full p-3 border rounded-md resize-none h-24"
+                placeholder="Descreva em suas próprias palavras..."
+                onBlur={(e) => {
+                  if (e.target.value.trim()) {
+                    handleAnswer(e.target.value.trim());
+                  }
+                }}
+              />
+              <Button 
+                variant="outline"
+                onClick={() => handleAnswer('Não especificado')}
+                className="w-full"
+              >
+                Pular pergunta
+              </Button>
             </div>
           )}
         </div>
@@ -310,17 +290,48 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
 
         <div className="space-y-6 py-4">
           {/* Progress */}
-          <Progress 
-            value={((currentQuestion + 1) / questions.length) * 100} 
-            className="w-full"
-          />
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Anamnese Inteligente</span>
+              <span>Urgência: {urgencyScore}/100</span>
+            </div>
+            <Progress 
+              value={isComplete ? 100 : Math.min((questionCount / 5) * 100, 90)} 
+              className="w-full"
+            />
+          </div>
+
+          {/* Status indicators */}
+          {(facialData || voiceData) && (
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <div className="text-xs font-medium mb-2">Dados Correlacionados:</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {facialData && (
+                  <div>FC: {facialData.heartRate || 'N/A'}bpm</div>
+                )}
+                {voiceData && (
+                  <div>Estresse Vocal: {voiceData.stressLevel || 'N/A'}/10</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Generating Question */}
+          {isGeneratingQuestion && (
+            <div className="text-center space-y-4">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+              <p className="text-sm text-muted-foreground">
+                Gerando próxima pergunta baseada no contexto...
+              </p>
+            </div>
+          )}
 
           {/* Análise em Progresso */}
           {isAnalyzing && (
             <div className="text-center space-y-4">
               <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-sm text-muted-foreground">
-                Analisando respostas e calculando urgência...
+                Analisando respostas com correlação multi-modal...
               </p>
             </div>
           )}
@@ -328,7 +339,12 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
           {/* Resultado da Análise */}
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold">Análise Concluída</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Análise Concluída</h3>
+                {analysisResult.intelligentMode && (
+                  <Badge variant="outline">IA Correlacionada</Badge>
+                )}
+              </div>
               
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -338,7 +354,7 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
                     analysisResult.urgencyLevel === 'alta' ? 'secondary' :
                     'default'
                   }>
-                    {analysisResult.urgencyLevel.toUpperCase()}
+                    {analysisResult.urgencyLevel?.toUpperCase() || 'BAIXA'}
                   </Badge>
                 </div>
                 
@@ -346,12 +362,31 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
                   <span className="font-medium">Score:</span>
                   <span>{analysisResult.urgencyScore}/100</span>
                 </div>
+
+                {analysisResult.questionCount && (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Perguntas:</span>
+                    <span>{analysisResult.questionCount} pergunta(s)</span>
+                  </div>
+                )}
               </div>
+
+              {/* Correlation insights */}
+              {analysisResult.correlationData && (
+                <div className="p-3 bg-background rounded border">
+                  <p className="font-medium text-sm mb-2">Correlação Multi-modal:</p>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>FC: {analysisResult.correlationData.heartRateFromFacial || 'N/A'}</div>
+                    <div>Estresse: {analysisResult.correlationData.stressFromVoice || 'N/A'}</div>
+                    <div>Urgência: {analysisResult.correlationData.urgencyFromAnamnesis || 'N/A'}</div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <p className="font-medium text-sm">Recomendações:</p>
                 <ul className="text-sm space-y-1">
-                  {analysisResult.recommendations.map((rec: string, index: number) => (
+                  {(analysisResult.recommendations || []).map((rec: string, index: number) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-primary">•</span>
                       <span>{rec}</span>
@@ -378,22 +413,25 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
           )}
 
           {/* Pergunta Atual */}
-          {!isAnalyzing && !analysisResult && renderQuestion()}
+          {!isAnalyzing && !analysisResult && !isGeneratingQuestion && currentQuestion && renderQuestion()}
 
-          {/* Navegação */}
-          {!isAnalyzing && !analysisResult && (
-            <div className="flex justify-between">
+          {/* Navigation and Error */}
+          {!isAnalyzing && !analysisResult && currentQuestion && (
+            <div className="flex justify-between items-center">
               <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentQuestion === 0}
+                variant="ghost"
+                onClick={handleSkipQuestion}
+                size="sm"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Anterior
+                <SkipForward className="h-4 w-4 mr-2" />
+                Pular
               </Button>
               
-              <div className="text-xs text-muted-foreground self-center">
-                Responda com precisão para melhor análise
+              <div className="text-xs text-muted-foreground text-center">
+                {questioningError && (
+                  <div className="text-destructive mb-1">{questioningError}</div>
+                )}
+                Perguntas adaptadas aos seus dados biométricos
               </div>
             </div>
           )}
