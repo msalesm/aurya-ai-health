@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Camera, Heart, Eye, Zap, Play, Square, Download } from 'lucide-react';
+import { Camera, Heart, Eye, Zap, Play, Square, ArrowRight, Thermometer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRPPG } from '@/hooks/useRPPG';
@@ -36,6 +36,8 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     disgust: 0.01,
     sadness: 0.04
   });
+  const [thermalState, setThermalState] = useState<'normal' | 'possible_fever' | 'indeterminate'>('indeterminate');
+  const [canContinue, setCanContinue] = useState(false);
   
   const { toast } = useToast();
   const { vitalSigns, updateFromFacialAnalysis } = useVitalSigns();
@@ -124,6 +126,11 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       if (currentProgress >= 100) {
         completeTelemetry();
       }
+      
+      // Allow continue after 10 seconds
+      if (currentProgress >= 66.7) { // 10 seconds
+        setCanContinue(true);
+      }
     }, 1000);
     
     // Enhanced simulation with biometric correlations
@@ -140,6 +147,11 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       setBlinkRate(Math.max(5, Math.min(25, 15 + (Math.random() - 0.5) * 8)));
       setPupilDilation(Math.max(2.0, Math.min(5.0, 3.2 + (Math.random() - 0.5) * 1.0)));
       
+      // Thermal state analysis based on facial characteristics
+      if (videoRef.current && canvasRef.current) {
+        analyzeThermalState();
+      }
+      
       // Micro-expressions with more realistic variation
       const baseStress = (currentHeartRate - 70) / 30; // Normalize to stress level
       setMicroExpressions({
@@ -151,6 +163,69 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         sadness: Math.max(0, Math.min(0.15, 0.04 + baseStress * 0.05 + (Math.random() - 0.5) * 0.08))
       });
     }, 500);
+  };
+
+  const analyzeThermalState = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(videoRef.current, 0, 0);
+    
+    // Extract image data from forehead/temple region
+    const imageData = ctx.getImageData(
+      canvas.width * 0.35,
+      canvas.height * 0.15,
+      canvas.width * 0.3,
+      canvas.height * 0.2
+    );
+    
+    let redSum = 0, greenSum = 0, blueSum = 0;
+    let brightnessVariance = 0;
+    const pixels = imageData.data;
+    const pixelCount = pixels.length / 4;
+    
+    // Calculate average color and brightness
+    for (let i = 0; i < pixels.length; i += 4) {
+      redSum += pixels[i];
+      greenSum += pixels[i + 1];
+      blueSum += pixels[i + 2];
+    }
+    
+    const avgRed = redSum / pixelCount;
+    const avgGreen = greenSum / pixelCount;
+    const avgBlue = blueSum / pixelCount;
+    const avgBrightness = (avgRed + avgGreen + avgBlue) / 3;
+    
+    // Calculate brightness variance (perspiration indicator)
+    for (let i = 0; i < pixels.length; i += 4) {
+      const brightness = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+      brightnessVariance += Math.pow(brightness - avgBrightness, 2);
+    }
+    brightnessVariance /= pixelCount;
+    
+    // Thermal state analysis
+    const currentHeartRate = rppgReading?.bpm || vitalSigns.heartRate;
+    const redIntensity = avgRed / 255;
+    const perspiration = brightnessVariance > 150;
+    
+    // Fever indicators
+    const highHeartRate = currentHeartRate > 85;
+    const flushedSkin = redIntensity > 0.65;
+    const sweating = perspiration;
+    
+    if ((highHeartRate && flushedSkin) || (flushedSkin && sweating)) {
+      setThermalState('possible_fever');
+    } else if (redIntensity < 0.4 && currentHeartRate < 60) {
+      setThermalState('normal');
+    } else {
+      setThermalState('indeterminate');
+    }
   };
 
   const captureFrame = async (): Promise<Blob | null> => {
@@ -168,6 +243,10 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     return new Promise((resolve) => {
       canvas.toBlob(resolve, 'image/jpeg', 0.8);
     });
+  };
+
+  const continueToNextStep = () => {
+    completeTelemetry();
   };
 
   const completeTelemetry = async () => {
@@ -217,7 +296,8 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         eyeOpenness,
         blinkRate,
         pupilDilation,
-        microExpressions
+        microExpressions,
+        thermalState
       },
       rppgData: rppgReading ? {
         bpm: rppgReading.bpm,
@@ -436,6 +516,31 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center space-x-2">
+                    <Thermometer className="h-5 w-5 text-orange-500" />
+                    <span>Estado Térmico</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <div className={`text-lg font-semibold ${
+                      thermalState === 'possible_fever' ? 'text-red-500' :
+                      thermalState === 'normal' ? 'text-green-500' :
+                      'text-yellow-500'
+                    }`}>
+                      {thermalState === 'possible_fever' ? 'Possível Febre' :
+                       thermalState === 'normal' ? 'Normal' :
+                       'Indeterminado'}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Análise de perfusão cutânea
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center space-x-2">
                     <Zap className="h-5 w-5 text-yellow-500" />
                     <span>Micro Expressions</span>
                   </CardTitle>
@@ -481,10 +586,18 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                   <span>Start Analysis</span>
                 </Button>
               ) : (
-                <Button onClick={stopTelemetry} variant="destructive" className="space-x-2">
-                  <Square className="h-4 w-4" />
-                  <span>Stop Recording</span>
-                </Button>
+                <>
+                  {canContinue && (
+                    <Button onClick={continueToNextStep} className="space-x-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>Continuar para Anamnese</span>
+                    </Button>
+                  )}
+                  <Button onClick={stopTelemetry} variant="outline" className="space-x-2">
+                    <Square className="h-4 w-4" />
+                    <span>Parar</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>
