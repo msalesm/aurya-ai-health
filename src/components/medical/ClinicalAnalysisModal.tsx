@@ -16,12 +16,19 @@ import {
   Droplets
 } from "lucide-react";
 
+interface PatientData {
+  fullName: string;
+  birthDate: string;
+  age?: number;
+}
+
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
   voiceAnalysis?: any;
   facialAnalysis?: any;
   anamnesisResults?: any;
+  patientData?: PatientData | null;
 }
 
 export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
@@ -29,7 +36,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   onClose,
   voiceAnalysis,
   facialAnalysis,
-  anamnesisResults
+  anamnesisResults,
+  patientData
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -61,6 +69,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     
     const report = {
       patientId: `PAT-${Date.now()}`,
+      patientName: patientData?.fullName || 'Paciente Anônimo',
+      patientAge: patientData?.age,
       timestamp: new Date().toISOString(),
       vitalSigns: vitalSnapshot,
       overallUrgency: calculateOverallUrgency(),
@@ -68,7 +78,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       riskFactors: identifyRiskFactors(),
       recommendations: generateRecommendations(),
       confidence: calculateOverallConfidence(),
-      dataQuality: assessDataQuality()
+      dataQuality: assessDataQuality(),
+      hasConversationalData: !!anamnesisResults?.conversationalData
     };
     
     setClinicalReport(report);
@@ -179,20 +190,24 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
       
       doc.setFontSize(12);
-      doc.text(`Paciente ID: ${clinicalReport.patientId}`, 20, 35);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 45);
+      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, 35);
+      if (clinicalReport.patientAge) {
+        doc.text(`Idade: ${clinicalReport.patientAge} anos`, 20, 45);
+      }
+      doc.text(`ID: ${clinicalReport.patientId}`, 20, 55);
+      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 65);
       
       // Urgência
       doc.setFontSize(14);
-      doc.text('NÍVEL DE URGÊNCIA:', 20, 65);
+      doc.text('NÍVEL DE URGÊNCIA:', 20, 85);
       doc.setFontSize(12);
-      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 75);
+      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 95);
       
       // Sintomas
       doc.setFontSize(14);
-      doc.text('SINTOMAS IDENTIFICADOS:', 20, 95);
+      doc.text('SINTOMAS IDENTIFICADOS:', 20, 115);
       doc.setFontSize(10);
-      let yPos = 105;
+      let yPos = 125;
       clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
         doc.text(`• ${symptom}`, 25, yPos);
         yPos += 10;

@@ -10,20 +10,29 @@ import {
   Stethoscope,
   ArrowRight,
   Play,
-  Pause
+  User
 } from "lucide-react";
+import PreparationModal from "./PreparationModal";
 import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 
-type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
+type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "anamnesis" | "analysis";
+
+interface PatientData {
+  fullName: string;
+  birthDate: string;
+  age?: number;
+}
 
 const TriageFlow = () => {
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
-  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(["preparation"]));
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const [patientData, setPatientData] = useState<PatientData | null>(null);
   
   // Modal states
+  const [showPreparationModal, setShowPreparationModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
@@ -36,37 +45,37 @@ const TriageFlow = () => {
     {
       id: "preparation",
       title: "Preparação",
-      description: "Verificação de equipamentos e orientações iniciais",
-      icon: <ClipboardList className="h-6 w-6" />,
-      status: "completed"
+      description: "Dados do paciente e verificação de equipamentos",
+      icon: <User className="h-6 w-6" />,
+      status: completedSteps.has("preparation") ? "completed" : (currentStep === "preparation" ? "active" : "pending")
+    },
+    {
+      id: "facial-analysis",
+      title: "Análise Facial Completa",
+      description: "rPPG para sinais vitais + detecção de estado térmico",
+      icon: <Video className="h-6 w-6" />,
+      status: completedSteps.has("facial-analysis") ? "completed" : (currentStep === "facial-analysis" ? "active" : "pending")
     },
     {
       id: "voice-analysis",
       title: "Análise de Voz Híbrida",
-      description: "OpenAI Whisper + Google Speech + Análise emocional",
+      description: "OpenAI + Google Speech + indicadores emocionais",
       icon: <Mic className="h-6 w-6" />,
-      status: currentStep === "voice-analysis" ? "active" : "pending"
-    },
-    {
-      id: "visual-assessment",
-      title: "Google Vision API",
-      description: "Análise facial completa com IA do Google Cloud",
-      icon: <Video className="h-6 w-6" />,
-      status: "pending"
+      status: completedSteps.has("voice-analysis") ? "completed" : (currentStep === "voice-analysis" ? "active" : "pending")
     },
     {
       id: "anamnesis",
-      title: "Anamnese com IA",
-      description: "Conversa direcionada sobre sintomas e histórico",
+      title: "Anamnese Inteligente",
+      description: "Perguntas estruturadas + conversa com IA (opcional)",
       icon: <Brain className="h-6 w-6" />,
-      status: "pending"
+      status: completedSteps.has("anamnesis") ? "completed" : (currentStep === "anamnesis" ? "active" : "pending")
     },
     {
       id: "analysis",
-      title: "Análise Clínica",
-      description: "Processamento dos dados e inferência diagnóstica",
+      title: "Análise Clínica Final",
+      description: "Consolidação de dados e relatório personalizado",
       icon: <Stethoscope className="h-6 w-6" />,
-      status: "pending"
+      status: completedSteps.has("analysis") ? "completed" : (currentStep === "analysis" ? "active" : "pending")
     }
   ];
 
@@ -75,11 +84,14 @@ const TriageFlow = () => {
     
     // Open appropriate modal based on step
     switch (step) {
+      case "preparation":
+        setShowPreparationModal(true);
+        break;
+      case "facial-analysis":
+        setShowFacialModal(true);
+        break;
       case "voice-analysis":
         setShowVoiceModal(true);
-        break;
-      case "visual-assessment":
-        setShowFacialModal(true);
         break;
       case "anamnesis":
         setShowAnamnesisModal(true);
@@ -90,16 +102,22 @@ const TriageFlow = () => {
     }
   };
 
+  const handlePreparationComplete = (data: PatientData) => {
+    setPatientData(data);
+    handleStepComplete("preparation", data);
+  };
+
   const handleStepComplete = (stepId: string, result: any) => {
     // Mark step as completed
     setCompletedSteps(prev => new Set(prev).add(stepId));
     
-    // Store results
+    // Store results with patient data context
     setStepResults(prev => ({
       ...prev,
       [stepId === "voice-analysis" ? "voice" : 
-       stepId === "visual-assessment" ? "facial" : 
-       stepId === "anamnesis" ? "anamnesis" : stepId]: result
+       stepId === "facial-analysis" ? "facial" : 
+       stepId === "anamnesis" ? "anamnesis" : stepId]: result,
+      patientData // Include patient data in all results
     }));
     
     // Progress to next step
@@ -175,19 +193,20 @@ const TriageFlow = () => {
                       </Button>
                     )}
                     
-                    {status === "pending" && index === steps.findIndex(s => s.id === currentStep) + 1 && (
+                    {status === "pending" && index === steps.findIndex(s => getStepStatus(s.id) === "active") + 1 && (
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => handleStartStep(step.id as TriageStep)}
                         className="w-full sm:w-auto min-h-[40px] text-xs md:text-sm"
+                        disabled={step.id !== "preparation" && !patientData}
                       >
                         <Play className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                         Iniciar
                       </Button>
                     )}
                     
-                    {step.id === "analysis" && completedSteps.size >= 4 && (
+                    {step.id === "analysis" && completedSteps.has("anamnesis") && (
                       <Button 
                         size="sm"
                         onClick={() => handleStartStep(step.id as TriageStep)}
@@ -207,22 +226,29 @@ const TriageFlow = () => {
       
           
           {/* Modals */}
+          <PreparationModal 
+            isOpen={showPreparationModal}
+            onClose={() => setShowPreparationModal(false)}
+            onComplete={handlePreparationComplete}
+          />
+          
+          <FacialTelemetryModal 
+            isOpen={showFacialModal}
+            onClose={() => setShowFacialModal(false)}
+            onComplete={(result) => handleStepComplete("facial-analysis", result)}
+          />
+          
           <VoiceAnalysisModal 
             isOpen={showVoiceModal}
             onClose={() => setShowVoiceModal(false)}
             onComplete={(result) => handleStepComplete("voice-analysis", result)}
           />
           
-          <FacialTelemetryModal 
-            isOpen={showFacialModal}
-            onClose={() => setShowFacialModal(false)}
-            onComplete={(result) => handleStepComplete("visual-assessment", result)}
-          />
-          
           <AnamnesisModal 
             isOpen={showAnamnesisModal}
             onClose={() => setShowAnamnesisModal(false)}
             onComplete={(result) => handleStepComplete("anamnesis", result)}
+            patientData={patientData}
           />
 
           <ClinicalAnalysisModal
@@ -231,6 +257,7 @@ const TriageFlow = () => {
             voiceAnalysis={stepResults.voice}
             facialAnalysis={stepResults.facial}
             anamnesisResults={stepResults.anamnesis}
+            patientData={patientData}
           />
     </div>
   );
