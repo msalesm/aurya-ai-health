@@ -66,14 +66,14 @@ const TriageFlow = () => {
     {
       id: "anamnesis",
       title: "Anamnese Inteligente",
-      description: "IA adaptativa + correlação biométrica em tempo real",
+      description: "Perguntas estruturadas + conversa com IA (opcional)",
       icon: <Brain className="h-6 w-6" />,
       status: completedSteps.has("anamnesis") ? "completed" : (currentStep === "anamnesis" ? "active" : "pending")
     },
     {
       id: "analysis",
-      title: "Análise Clínica Multi-Modal",
-      description: "Correlação cross-modal + relatório consolidado",
+      title: "Análise Clínica Final",
+      description: "Consolidação de dados e relatório personalizado",
       icon: <Stethoscope className="h-6 w-6" />,
       status: completedSteps.has("analysis") ? "completed" : (currentStep === "analysis" ? "active" : "pending")
     }
@@ -249,8 +249,6 @@ const TriageFlow = () => {
             onClose={() => setShowAnamnesisModal(false)}
             onComplete={(result) => handleStepComplete("anamnesis", result)}
             patientData={patientData}
-            facialData={stepResults.facial}
-            voiceData={stepResults.voice}
           />
 
           <ClinicalAnalysisModal
