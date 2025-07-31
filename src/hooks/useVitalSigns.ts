@@ -26,21 +26,57 @@ export interface VitalSignsHook {
   error: string | null;
 }
 
-export const useVitalSigns = (): VitalSignsHook => {
-  const [vitalSigns, setVitalSigns] = useState<VitalSigns>({
-    heartRate: 72,
+// Gerar baseline realista com variabilidade
+const generateRealisticBaseline = () => {
+  // Simular perfil demográfico básico
+  const ageGroup = Math.random() > 0.6 ? 'young' : Math.random() > 0.3 ? 'middle' : 'senior';
+  const fitnessLevel = Math.random() * 10;
+  const stressBaseline = Math.random() * 5;
+  
+  // FC baseada na idade e fitness
+  let heartRate;
+  if (ageGroup === 'young') {
+    heartRate = fitnessLevel > 7 ? Math.floor(Math.random() * 15) + 55 : Math.floor(Math.random() * 20) + 65;
+  } else if (ageGroup === 'middle') {
+    heartRate = fitnessLevel > 6 ? Math.floor(Math.random() * 20) + 60 : Math.floor(Math.random() * 25) + 70;
+  } else {
+    heartRate = Math.floor(Math.random() * 25) + 70;
+  }
+  
+  // PA baseada na idade e stress
+  const systolicBase = ageGroup === 'young' ? 115 : ageGroup === 'middle' ? 125 : 135;
+  const systolic = systolicBase + Math.floor(Math.random() * 20) - 10 + Math.floor(stressBaseline * 3);
+  const diastolic = Math.floor(systolic * 0.65) + Math.floor(Math.random() * 10) - 5;
+  
+  // Temperatura com variação natural
+  const temperature = Math.round((36.1 + Math.random() * 1.1) * 10) / 10;
+  
+  // SpO2 com distribuição realista (peso maior em 98-99%)
+  const oxygenSaturation = Math.random() > 0.8 ? 
+    Math.floor(Math.random() * 3) + 96 : 
+    Math.floor(Math.random() * 2) + 98;
+  
+  // Taxa respiratória
+  const respiratoryRate = Math.floor(Math.random() * 6) + 14;
+  
+  return {
+    heartRate,
     bloodPressure: {
-      systolic: 120,
-      diastolic: 80,
-      formatted: '120/80'
+      systolic,
+      diastolic,
+      formatted: `${systolic}/${diastolic}`
     },
-    temperature: 36.5,
-    oxygenSaturation: 98,
-    respiratoryRate: 16,
+    temperature,
+    oxygenSaturation,
+    respiratoryRate,
     timestamp: new Date().toISOString(),
-    source: 'simulated',
-    confidence: 70
-  });
+    source: 'simulated' as const,
+    confidence: Math.floor(Math.random() * 25) + 65
+  };
+};
+
+export const useVitalSigns = (): VitalSignsHook => {
+  const [vitalSigns, setVitalSigns] = useState<VitalSigns>(() => generateRealisticBaseline());
 
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [error, setError] = useState<string | null>(null);

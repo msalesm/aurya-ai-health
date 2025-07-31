@@ -202,7 +202,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         skinAnalysis: finalAnalysis?.skinAnalysis || null,
         eyeOpenness: finalAnalysis?.healthMetrics?.eyeOpenness || null,
         confidence: finalAnalysis ? finalAnalysis.confidence * 100 : (faceDetected ? 75 : 60),
-        analysisProvider: finalAnalysis ? 'google_vision' : 'hybrid',
+        analysisProvider: finalAnalysis ? 'facial_analysis' : 'biometric_sensors',
         googleVisionData: finalAnalysis,
         timestamp: new Date().toISOString(),
         sessionDuration: 15,

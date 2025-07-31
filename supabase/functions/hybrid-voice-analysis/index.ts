@@ -60,11 +60,9 @@ serve(async (req) => {
     // 5. Compilar resultado final
     const analysis = {
       transcription: transcription.text,
-      transcriptionProvider: transcription.provider,
       emotional_tone: {
         primary_emotion: emotionalAnalysis.primary_emotion,
         confidence: emotionalAnalysis.confidence,
-        provider: emotionalAnalysis.provider,
         all_emotions: emotionalAnalysis.details || []
       },
       stress_indicators: stressAnalysis,
@@ -126,7 +124,7 @@ async function transcribeWithOpenAI(audioData: string) {
     }
 
     const data = await response.json();
-    return { text: data.text, provider: 'openai_whisper' };
+    return { text: data.text, provider: 'ai_transcription' };
     
   } catch (error) {
     console.error('OpenAI transcription failed:', error);
@@ -166,7 +164,7 @@ async function transcribeWithGoogle(audioData: string) {
     const data = await response.json();
     const transcript = data.results?.[0]?.alternatives?.[0]?.transcript || 'Transcrição não disponível';
     
-    return { text: transcript, provider: 'google_speech' };
+    return { text: transcript, provider: 'ai_transcription' };
     
   } catch (error) {
     console.error('Google transcription failed:', error);
@@ -207,7 +205,7 @@ async function analyzeEmotionWithOpenAI(text: string) {
     
     return {
       status: 'fulfilled',
-      value: { ...result, provider: 'openai' }
+      value: { ...result, provider: 'medical_ai' }
     };
     
   } catch (error) {
@@ -253,7 +251,7 @@ async function analyzeEmotionWithGoogle(text: string) {
         emotion: emotion,
         confidence: Math.abs(sentiment.score),
         magnitude: sentiment.magnitude,
-        provider: 'google'
+        provider: 'medical_ai'
       }
     };
     
@@ -284,19 +282,19 @@ function combineEmotionalAnalysis(openAIResult: any, googleResult: any) {
       confidence = google.confidence;
     }
     
-    provider = 'openai_google_hybrid';
+    provider = 'hybrid_ai';
     
   } else if (openAIResult.status === 'fulfilled') {
     const openAI = openAIResult.value;
     primary_emotion = openAI.emotion;
     confidence = openAI.confidence;
-    provider = 'openai_only';
+    provider = 'voice_analysis';
     
   } else if (googleResult.status === 'fulfilled') {
     const google = googleResult.value;
     primary_emotion = google.emotion;
     confidence = google.confidence;
-    provider = 'google_only';
+    provider = 'voice_analysis';
   }
   
   return {
@@ -408,32 +406,56 @@ function estimateAudioDuration(audioData: string): number {
 }
 
 function calculateOverallConfidence(transcription: any, emotional: any): number {
-  let confidence = 0.2; // Base reduzida para ser mais realista
+  const text = transcription.text || '';
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   
-  // Confiança da transcrição
-  if (transcription.provider === 'openai_whisper') confidence += 0.3;
-  else if (transcription.provider === 'google_speech') confidence += 0.25;
-  else confidence += 0.1; // fallback tem menor confiança
+  // Base realista baseada na qualidade do áudio
+  let confidence = 0.35;
   
-  // Confiança da análise emocional
-  if (emotional.provider.includes('hybrid')) confidence += 0.25;
-  else if (emotional.provider.includes('openai') || emotional.provider.includes('google')) confidence += 0.15;
+  // Análise de qualidade da transcrição
+  const wordsPerMinute = words.length / Math.max(1, estimateAudioDuration(transcription.text) / 60);
+  const avgSentenceLength = sentences.length > 0 ? text.length / sentences.length : 0;
   
-  // Fator da confiança específica da análise emocional
-  confidence += emotional.confidence * 0.15;
-  
-  // Penalizar textos muito curtos (menos confiáveis)
-  if (transcription.text && transcription.text.length < 20) {
-    confidence *= 0.7;
+  // WPM normal (120-180) indica boa qualidade
+  if (wordsPerMinute >= 120 && wordsPerMinute <= 180) {
+    confidence += 0.15;
+  } else if (wordsPerMinute < 80 || wordsPerMinute > 220) {
+    confidence -= 0.1; // Muito rápido ou lento pode indicar problemas
   }
   
-  // Bonificar textos com boa estrutura
-  if (transcription.text && transcription.text.length > 100) {
-    confidence += 0.05;
+  // Frases bem estruturadas aumentam confiança
+  if (avgSentenceLength > 20 && avgSentenceLength < 100) {
+    confidence += 0.1;
   }
   
-  // Garantir range realista (40-90% em vez de até 95%)
-  return Math.max(0.4, Math.min(0.9, confidence));
+  // Palavras incompletas ou truncadas reduzem confiança
+  const truncatedWords = words.filter(word => word.includes('...') || word.length < 2).length;
+  confidence -= (truncatedWords / words.length) * 0.2;
+  
+  // Hesitações e pausas afetam clareza
+  const hesitations = (text.match(/\b(uh|um|ah|er|hmm)\b/gi) || []).length;
+  confidence -= Math.min(0.15, hesitations * 0.02);
+  
+  // Qualidade baseada na completude das ideias
+  const incompleteMarkers = (text.match(/\.\.\.|--|\bunfinished\b/gi) || []).length;
+  confidence -= incompleteMarkers * 0.03;
+  
+  // Fator da análise emocional (correlação com consistência)
+  if (emotional.confidence) {
+    confidence += emotional.confidence * 0.1;
+  }
+  
+  // Duração do áudio afeta precisão
+  const duration = estimateAudioDuration(text);
+  if (duration < 3) {
+    confidence *= 0.8; // Áudio muito curto
+  } else if (duration > 30) {
+    confidence += 0.05; // Áudio longo permite melhor análise
+  }
+  
+  // Range realista: 45-92%
+  return Math.max(0.45, Math.min(0.92, confidence));
 }
 
 function generateHealthIndicators(analysis: any) {
