@@ -222,9 +222,9 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-sm md:text-base">
             <Eye className="h-4 w-4 md:h-5 md:w-5" />
-            Telemetria Facial
+            Análise Facial Avançada
             <Badge variant="outline" className="ml-2 text-xs">
-              Google Vision API
+              Visão Computacional
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -267,7 +267,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
                   {currentHeartRate || '--'} BPM
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Google Vision AI
+                  Análise em tempo real
                 </div>
               </CardContent>
             </Card>
@@ -293,7 +293,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             <div className="space-y-2">
               <Progress value={progress} className="h-2 md:h-3" />
               <p className="text-xs md:text-sm text-center text-muted-foreground">
-                Analisando com Google Vision API... {Math.round(progress)}%
+                Analisando padrões faciais... {Math.round(progress)}%
               </p>
             </div>
           )}
@@ -303,7 +303,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             <div className="text-center space-y-4 py-4">
               <div className="animate-spin w-6 h-6 md:w-8 md:h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
               <p className="text-xs md:text-sm text-muted-foreground">
-                Processando dados com Google Vision API...
+                Processando análise facial...
               </p>
             </div>
           )}
@@ -347,7 +347,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
 
           {/* Instruções - Texto menor em mobile */}
           <div className="text-xs md:text-sm text-muted-foreground text-center px-2">
-            Olhe diretamente para a câmera. O Google Vision API detectará características faciais e sinais vitais.
+            Posicione-se diretamente em frente à câmera. Nossa tecnologia detectará seus sinais vitais através da análise facial.
           </div>
         </div>
       </DialogContent>

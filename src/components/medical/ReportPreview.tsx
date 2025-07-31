@@ -150,8 +150,17 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
                     <Input
                       id="patient-cpf"
                       value={patientData.cpf}
-                      onChange={(e) => handlePatientChange("cpf", e.target.value)}
-                      placeholder="123.456.789-00"
+                      onChange={(e) => {
+                        // Format CPF as user types
+                        let value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 11) {
+                          value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                          value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                          value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                        }
+                        handlePatientChange("cpf", value);
+                      }}
+                      placeholder="000.000.000-00"
                       maxLength={14}
                     />
                   </div>
@@ -169,8 +178,17 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
                     <Input
                       id="patient-phone"
                       value={patientData.phone}
-                      onChange={(e) => handlePatientChange("phone", e.target.value)}
+                      onChange={(e) => {
+                        // Format phone as user types
+                        let value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 11) {
+                          value = value.replace(/(\d{2})(\d)/, '($1) $2');
+                          value = value.replace(/(\d{4,5})(\d{4})$/, '$1-$2');
+                        }
+                        handlePatientChange("phone", value);
+                      }}
                       placeholder="(11) 99999-9999"
+                      maxLength={15}
                     />
                   </div>
                   <div className="space-y-2 col-span-2">

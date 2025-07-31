@@ -17,10 +17,13 @@ import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 import { OnboardingGuide } from "./OnboardingGuide";
+import { StepSuccess } from "./StepSuccess";
+import { useToast } from "@/hooks/use-toast";
 
 type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
 
 const TriageFlow = () => {
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(["preparation"]));
   
@@ -31,6 +34,8 @@ const TriageFlow = () => {
   const [showClinicalModal, setShowClinicalModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<string>("");
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successStepTitle, setSuccessStepTitle] = useState("");
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
@@ -114,11 +119,16 @@ const TriageFlow = () => {
        stepId === "anamnesis" ? "anamnesis" : stepId]: result
     }));
     
-    // Progress to next step
-    const stepIndex = steps.findIndex(s => s.id === stepId);
-    if (stepIndex < steps.length - 1) {
-      setCurrentStep(steps[stepIndex + 1].id as TriageStep);
-    }
+    // Show success feedback
+    const stepName = steps.find(s => s.id === stepId)?.title || stepId;
+    setSuccessStepTitle(stepName);
+    setShowSuccess(true);
+    
+    toast({
+      title: "Etapa concluída!",
+      description: `${stepName} foi realizada com sucesso.`,
+      duration: 3000,
+    });
   };
 
   const getStepStatus = (stepId: string) => {
@@ -250,6 +260,19 @@ const TriageFlow = () => {
             voiceAnalysis={stepResults.voice}
             facialAnalysis={stepResults.facial}
             anamnesisResults={stepResults.anamnesis}
+          />
+
+          <StepSuccess
+            stepTitle={successStepTitle}
+            isVisible={showSuccess}
+            onComplete={() => {
+              setShowSuccess(false);
+              // Progress to next step after success animation
+              const currentStepIndex = steps.findIndex(s => s.id === currentStep);
+              if (currentStepIndex < steps.length - 1) {
+                setCurrentStep(steps[currentStepIndex + 1].id as TriageStep);
+              }
+            }}
           />
     </div>
   );
