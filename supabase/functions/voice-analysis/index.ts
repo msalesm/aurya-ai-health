@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +16,8 @@ serve(async (req) => {
 
   try {
     console.log('Voice analysis function called');
+    console.log('Request method:', req.method);
+    console.log('Content-Type header:', req.headers.get('content-type'));
     console.log('Content-Type:', req.headers.get('content-type'));
 
     if (!openAIApiKey) {
@@ -28,48 +31,51 @@ serve(async (req) => {
       });
     }
 
-    // Robust JSON parsing with validation
-    let requestBody;
-    try {
-      const text = await req.text();
-      console.log('Request body length:', text.length);
-      console.log('Request body preview:', text.substring(0, 100));
-      
-      if (!text || text.trim() === '') {
-        throw new Error('Empty request body');
-      }
-      
-      requestBody = JSON.parse(text);
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError.message);
-      return new Response(JSON.stringify({ 
-        error: 'Invalid JSON in request body',
-        success: false
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Process FormData
+    const formData = await req.formData();
+    console.log('FormData processed successfully');
+    
+    // Log FormData entries for debugging
+    const entries = [];
+    for (const [key, value] of formData.entries()) {
+      entries.push({
+        key,
+        type: typeof value,
+        isFile: value instanceof File,
+        size: value instanceof File ? value.size : value.length
       });
     }
+    console.log('FormData entries:', JSON.stringify(entries, null, 2));
 
-    const { audio } = requestBody;
-    
-    if (!audio) {
-      throw new Error('No audio data provided');
+    const audioFile = formData.get('audio') as File;
+    const userId = formData.get('user_id') as string;
+    const sessionDuration = formData.get('session_duration') as string;
+
+    console.log('Dados recebidos:', JSON.stringify({
+      temArquivoAudio: !!audioFile,
+      tamanhoArquivo: audioFile?.size,
+      tipoArquivo: audioFile?.type,
+      userId: userId ? 'presente' : 'ausente',
+      sessionDuration
+    }, null, 2));
+
+    if (!audioFile) {
+      throw new Error('No audio file provided');
     }
 
-    console.log('Audio data received, length:', audio.length);
+    console.log('Audio file details:', JSON.stringify({
+      type: audioFile.type,
+      size: audioFile.size,
+      fileName: audioFile.name
+    }));
 
-    // Convert base64 to binary
-    const binaryAudio = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-    
     // Prepare form data for OpenAI Whisper
-    const formData = new FormData();
-    const blob = new Blob([binaryAudio], { type: 'audio/webm' });
-    formData.append('file', blob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'pt');
+    const whisperFormData = new FormData();
+    whisperFormData.append('file', audioFile, audioFile.name);
+    whisperFormData.append('model', 'whisper-1');
+    whisperFormData.append('language', 'pt');
 
-    console.log('Sending to OpenAI Whisper...');
+    console.log('Enviando para OpenAI Whisper...');
 
     // Get transcription from OpenAI
     const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -77,7 +83,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
       },
-      body: formData,
+      body: whisperFormData,
     });
 
     if (!transcriptionResponse.ok) {
@@ -89,13 +95,13 @@ serve(async (req) => {
     const transcriptionResult = await transcriptionResponse.json();
     const transcription = transcriptionResult.text;
 
-    console.log('Transcription completed:', transcription.substring(0, 100) + '...');
+    console.log('Transcrição concluída:', transcription);
 
     if (!transcription || transcription.trim().length === 0) {
       throw new Error('Could not transcribe audio. Please try again with clearer recording.');
     }
 
-    // Analyze emotional tone using OpenAI GPT
+    // Analyze using OpenAI GPT for medical context
     const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -107,18 +113,19 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert in voice and psychological analysis. Analyze the transcribed text and provide a detailed analysis in JSON format with these fields:
-            - emotional_tone: object with "dominant" (string), "confidence" (0-1), "emotions" (object with keys like "joy", "sadness", "anger", etc. and values 0-1)
-            - stress_indicators: object with "level" ("low"/"moderate"/"high"), "score" (0-100), "indicators" (array of strings)
-            - psychological_analysis: object with "mood_score" (0-100), "energy_level" (0-100), "insights" (array), "recommendations" (array)
-            - voice_metrics: object with "speech_rate" (120-180), "clarity" (0-100), "confidence_level" (0-100)
-            - confidence_score: number from 0 to 1
+            content: `Você é um especialista em análise de voz médica. Analise o texto transcrito e forneça uma análise detalhada em formato JSON com estes campos:
+            - emotional_tone: objeto com "dominant" (string), "confidence" (0-1), "emotions" (objeto com chaves como "joy", "sadness", "anxiety", etc. e valores 0-1)
+            - stress_indicators: objeto com "level" ("baixo"/"moderado"/"alto"), "score" (0-100), "indicators" (array de strings)
+            - medical_indicators: objeto com "respiratory_pattern" ("normal"/"irregular"/"labored"), "speech_clarity" (0-100), "potential_concerns" (array de strings)
+            - psychological_analysis: objeto com "mood_score" (0-100), "energy_level" (0-100), "insights" (array), "recommendations" (array)
+            - voice_metrics: objeto com "speech_rate" (120-180), "clarity" (0-100), "confidence_level" (0-100)
+            - confidence_score: número de 0 a 1
             
-            Respond only with the JSON, no additional explanations.`
+            Responda apenas com o JSON, sem explicações adicionais. Foque em indicadores relevantes para triagem médica.`
           },
           {
             role: 'user',
-            content: `Analyze this transcribed text: "${transcription}"`
+            content: `Analise este texto transcrito para triagem médica: "${transcription}"`
           }
         ],
         temperature: 0.3,
@@ -136,26 +143,31 @@ serve(async (req) => {
     
     try {
       analysis = JSON.parse(analysisResult.choices[0].message.content);
-      console.log('Analysis completed successfully');
+      console.log('Análise concluída com sucesso');
     } catch (e) {
       console.error('JSON parsing error:', e);
-      // Fallback analysis if JSON parsing fails
+      // Fallback analysis for medical context
       analysis = {
         emotional_tone: { 
-          dominant: "neutral", 
+          dominant: "neutro", 
           confidence: 0.7, 
-          emotions: { neutral: 0.7, calm: 0.3 } 
+          emotions: { neutro: 0.7, calmo: 0.3 } 
         },
         stress_indicators: { 
-          level: "low", 
+          level: "baixo", 
           score: 30, 
-          indicators: ["Normal speech pattern"] 
+          indicators: ["Padrão de fala normal"] 
+        },
+        medical_indicators: {
+          respiratory_pattern: "normal",
+          speech_clarity: 80,
+          potential_concerns: ["Nenhuma preocupação aparente"]
         },
         psychological_analysis: { 
           mood_score: 70, 
           energy_level: 60, 
-          insights: ["Stable emotional state"], 
-          recommendations: ["Continue regular monitoring"] 
+          insights: ["Estado emocional estável"], 
+          recommendations: ["Continuar monitoramento regular"] 
         },
         voice_metrics: { 
           speech_rate: 150, 
@@ -166,13 +178,41 @@ serve(async (req) => {
       };
     }
 
-    console.log('Analysis completed successfully');
+    // Save to database (optional - following mind-balance pattern)
+    try {
+      console.log('Salvando no banco de dados...');
+      
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data, error } = await supabase
+        .from('voice_analyses')
+        .insert({
+          user_id: userId || null,
+          transcription: transcription,
+          analysis_result: analysis,
+          session_duration: sessionDuration ? parseInt(sessionDuration) : null,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Database save error:', error);
+        // Continue without throwing - analysis is still valid
+      } else {
+        console.log('Análise salva com sucesso');
+      }
+    } catch (dbError) {
+      console.error('Database connection error:', dbError);
+      // Continue without throwing - analysis is still valid
+    }
 
     return new Response(JSON.stringify({
       success: true,
       transcription: transcription,
       emotional_tone: analysis.emotional_tone,
       stress_indicators: analysis.stress_indicators,
+      medical_indicators: analysis.medical_indicators,
       psychological_analysis: analysis.psychological_analysis,
       voice_metrics: analysis.voice_metrics,
       confidence_score: analysis.confidence_score

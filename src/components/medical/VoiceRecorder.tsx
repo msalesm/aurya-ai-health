@@ -116,26 +116,15 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setIsAnalyzing(true);
     
     try {
-      // Converter blob para base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(',')[1]); // Remove data URL prefix
-        };
-      });
-      
-      reader.readAsDataURL(audioBlob);
-      const audioBase64 = await base64Promise;
+      // Criar FormData para enviar como no mind-balance
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.webm');
+      formData.append('user_id', 'anonymous-user'); // ou pegar de auth se disponível
+      formData.append('session_duration', recordingTime.toString());
 
-      // Enviar para análise com headers corretos
+      // Enviar para análise usando FormData
       const response = await supabase.functions.invoke('voice-analysis', {
-        body: JSON.stringify({
-          audio: audioBase64
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        body: formData
       });
 
       if (response.error) {
@@ -151,23 +140,15 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     } catch (error) {
       console.error('Erro na análise de voz:', error);
       
-      // Fallback com dados simulados
+      // Fallback com dados simulados para contexto médico
       const mockAnalysis = {
-        emotion: {
-          primary: 'calm',
-          confidence: 0.85,
-          stress_level: 'low'
-        },
-        speech: {
-          clarity: 'good',
-          speech_rate: 'normal',
-          respiratory_pattern: 'regular'
-        },
-        health: {
-          vocal_tremor: false,
-          breathiness: 'minimal',
-          overall_health_score: 88
-        }
+        transcription: "Análise de voz mock - erro na análise",
+        emotional_tone: { dominant: "neutro", confidence: 0.7 },
+        stress_indicators: { level: "baixo", score: 25 },
+        medical_indicators: { respiratory_pattern: "normal", speech_clarity: 80 },
+        psychological_analysis: { mood_score: 75, energy_level: 70 },
+        voice_metrics: { speech_rate: 150, clarity: 85, confidence_level: 80 },
+        confidence_score: 0.7
       };
       
       if (onAnalysisComplete) {
