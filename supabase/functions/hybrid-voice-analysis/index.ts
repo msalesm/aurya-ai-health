@@ -15,10 +15,35 @@ serve(async (req) => {
   }
 
   try {
-    const { audioData, userId, preferredProvider = 'openai' } = await req.json();
+    // Detectar formato da requisição (JSON ou FormData)
+    const contentType = req.headers.get('content-type') || '';
+    let audioData, userId, preferredProvider = 'openai';
 
-    if (!audioData || !userId) {
-      throw new Error('Audio data and userId are required');
+    if (contentType.includes('application/json')) {
+      const jsonData = await req.json();
+      audioData = jsonData.audioData || jsonData.audio;
+      userId = jsonData.userId || jsonData.user_id || 'anonymous-user';
+      preferredProvider = jsonData.preferredProvider || 'openai';
+    } else {
+      // Fallback para FormData (compatibilidade com voice-analysis)
+      const formData = await req.formData();
+      const audioFile = formData.get('audio') as File;
+      userId = formData.get('user_id') as string || 'anonymous-user';
+      
+      if (audioFile) {
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        audioData = `data:${audioFile.type};base64,${base64}`;
+      }
+    }
+
+    if (!audioData) {
+      return new Response(JSON.stringify({ 
+        error: 'Audio data is required. Send as "audioData" in JSON or "audio" file in FormData.' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log(`Processing hybrid voice analysis for user: ${userId} with provider: ${preferredProvider}`);
@@ -94,10 +119,22 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in hybrid voice analysis:', error);
+    
+    // Retornar erro 400 para problemas de formato de dados
+    const isDataError = error.message && (
+      error.message.includes('required') ||
+      error.message.includes('Audio data') ||
+      error.message.includes('format')
+    );
+    
+    const status = isDataError ? 400 : 500;
+    
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unexpected error occurred' 
+      error: error.message || 'An unexpected error occurred',
+      success: false,
+      status: status
     }), {
-      status: 500,
+      status: status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

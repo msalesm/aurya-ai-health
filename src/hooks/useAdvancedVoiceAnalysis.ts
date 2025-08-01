@@ -228,26 +228,89 @@ const extractProsodicFeatures = async (audioBuffer: AudioBuffer) => {
 };
 
 const performHybridAnalysis = async (audioBlob: Blob) => {
-  // Converter para base64 para enviar ao edge function
-  const base64Audio = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
-    reader.readAsDataURL(audioBlob);
-  });
+  // Sistema de fallback robusto entre as duas edge functions
+  
+  // Primeira tentativa: hybrid-voice-analysis com JSON
+  try {
+    console.log('Tentando análise híbrida...');
+    
+    const base64Audio = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.readAsDataURL(audioBlob);
+    });
 
-  const { data, error } = await supabase.functions.invoke('hybrid-voice-analysis', {
-    body: { 
-      audioData: base64Audio,
-      userId: 'anonymous-user', // Fallback para análise sem autenticação
-      preferredProvider: 'openai'
+    const { data, error } = await supabase.functions.invoke('hybrid-voice-analysis', {
+      body: { 
+        audioData: base64Audio,
+        userId: 'anonymous-user',
+        preferredProvider: 'openai'
+      }
+    });
+
+    if (error) {
+      console.warn('Híbrida falhou:', error);
+      throw error;
     }
-  });
 
-  if (error) throw error;
-  return data;
+    if (data && data.success) {
+      console.log('Análise híbrida bem-sucedida');
+      return data.analysis;
+    }
+
+    throw new Error('Resposta híbrida inválida');
+
+  } catch (hybridError) {
+    console.log('Análise híbrida falhou, usando voice-analysis como fallback');
+    
+    // Segunda tentativa: voice-analysis com FormData
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.webm');
+      formData.append('user_id', 'anonymous-user');
+      formData.append('session_duration', '30');
+
+      const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke('voice-analysis', {
+        body: formData
+      });
+
+      if (fallbackError) {
+        throw new Error(`Voice-analysis falhou: ${fallbackError.message}`);
+      }
+
+      if (fallbackData && fallbackData.success) {
+        console.log('Fallback voice-analysis bem-sucedido');
+        // Converter formato para compatibilidade
+        return {
+          transcription: fallbackData.transcription,
+          emotional_tone: fallbackData.emotional_tone,
+          stress_indicators: fallbackData.stress_indicators,
+          confidence_score: fallbackData.confidence_score,
+          session_duration: 30,
+          analysis_timestamp: new Date().toISOString()
+        };
+      }
+
+      throw new Error('Voice-analysis retornou dados inválidos');
+
+    } catch (fallbackError) {
+      console.error('Ambas as análises falharam:', fallbackError);
+      
+      // Último recurso: análise mockada básica
+      return {
+        transcription: 'Análise de voz temporariamente indisponível',
+        emotional_tone: { primary_emotion: 'neutral', confidence: 0.3 },
+        stress_indicators: { stress_level: 3, indicators: ['Análise limitada'] },
+        confidence_score: 0.3,
+        session_duration: 30,
+        analysis_timestamp: new Date().toISOString(),
+        fallback: true
+      };
+    }
+  }
 };
 
 // Funções matemáticas para análise avançada
