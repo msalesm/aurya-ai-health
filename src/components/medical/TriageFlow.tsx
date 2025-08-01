@@ -17,7 +17,7 @@ import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
 
-type TriageStep = "preparation" | "voice-analysis" | "visual-assessment" | "anamnesis" | "analysis" | "results";
+type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "anamnesis" | "clinical-analysis";
 
 const TriageFlow = () => {
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
@@ -41,30 +41,30 @@ const TriageFlow = () => {
       status: "completed"
     },
     {
-      id: "voice-analysis",
-      title: "Análise de Voz Híbrida",
-      description: "OpenAI Whisper + Google Speech + Análise emocional",
-      icon: <Mic className="h-6 w-6" />,
-      status: currentStep === "voice-analysis" ? "active" : "pending"
+      id: "facial-analysis",
+      title: "Análise Facial Completa",
+      description: "Telemetria facial, rPPG e análise biométrica",
+      icon: <Video className="h-6 w-6" />,
+      status: currentStep === "facial-analysis" ? "active" : "pending"
     },
     {
-      id: "visual-assessment",
-      title: "Google Vision API",
-      description: "Análise facial completa com IA do Google Cloud",
-      icon: <Video className="h-6 w-6" />,
+      id: "voice-analysis",
+      title: "Análise de Voz",
+      description: "Padrões vocais, emocionais e respiratórios",
+      icon: <Mic className="h-6 w-6" />,
       status: "pending"
     },
     {
       id: "anamnesis",
-      title: "Anamnese com IA",
-      description: "Conversa direcionada sobre sintomas e histórico",
+      title: "Anamnese Inteligente",
+      description: "Conversa estruturada com IA sobre sintomas",
       icon: <Brain className="h-6 w-6" />,
       status: "pending"
     },
     {
-      id: "analysis",
-      title: "Análise Clínica",
-      description: "Processamento dos dados e inferência diagnóstica",
+      id: "clinical-analysis",
+      title: "Análise Clínica Final",
+      description: "Relatório consolidado com snapshot de sinais vitais",
       icon: <Stethoscope className="h-6 w-6" />,
       status: "pending"
     }
@@ -75,16 +75,16 @@ const TriageFlow = () => {
     
     // Open appropriate modal based on step
     switch (step) {
+      case "facial-analysis":
+        setShowFacialModal(true);
+        break;
       case "voice-analysis":
         setShowVoiceModal(true);
-        break;
-      case "visual-assessment":
-        setShowFacialModal(true);
         break;
       case "anamnesis":
         setShowAnamnesisModal(true);
         break;
-      case "analysis":
+      case "clinical-analysis":
         setShowClinicalModal(true);
         break;
     }
@@ -97,8 +97,8 @@ const TriageFlow = () => {
     // Store results
     setStepResults(prev => ({
       ...prev,
-      [stepId === "voice-analysis" ? "voice" : 
-       stepId === "visual-assessment" ? "facial" : 
+      [stepId === "facial-analysis" ? "facial" : 
+       stepId === "voice-analysis" ? "voice" : 
        stepId === "anamnesis" ? "anamnesis" : stepId]: result
     }));
     
@@ -187,14 +187,14 @@ const TriageFlow = () => {
                       </Button>
                     )}
                     
-                    {step.id === "analysis" && completedSteps.size >= 4 && (
+                    {step.id === "clinical-analysis" && completedSteps.size >= 4 && (
                       <Button 
                         size="sm"
                         onClick={() => handleStartStep(step.id as TriageStep)}
                         className="w-full sm:w-auto min-h-[40px] text-xs md:text-sm"
                       >
-                        <Brain className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                        Ver Análise
+                        <Stethoscope className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        Gerar Relatório
                       </Button>
                     )}
                   </div>
@@ -216,7 +216,7 @@ const TriageFlow = () => {
           <FacialTelemetryModal 
             isOpen={showFacialModal}
             onClose={() => setShowFacialModal(false)}
-            onComplete={(result) => handleStepComplete("visual-assessment", result)}
+            onComplete={(result) => handleStepComplete("facial-analysis", result)}
           />
           
           <AnamnesisModal 
