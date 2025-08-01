@@ -36,14 +36,26 @@ serve(async (req) => {
     }
 
     // 2. Análise emocional - Híbrida (OpenAI + Google Natural Language)
-    if (transcription.text && transcription.text.length > 10) {
-      const [openAIEmotion, googleEmotion] = await Promise.allSettled([
-        analyzeEmotionWithOpenAI(transcription.text),
-        analyzeEmotionWithGoogle(transcription.text)
-      ]);
+    if (transcription.text && transcription.text.length > 5) {
+      console.log('Starting emotional analysis for text:', transcription.text.substring(0, 50));
+      
+      try {
+        const [openAIEmotion, googleEmotion] = await Promise.allSettled([
+          analyzeEmotionWithOpenAI(transcription.text),
+          analyzeEmotionWithGoogle(transcription.text)
+        ]);
 
-      emotionalAnalysis = combineEmotionalAnalysis(openAIEmotion, googleEmotion);
+        emotionalAnalysis = combineEmotionalAnalysis(openAIEmotion, googleEmotion);
+      } catch (analysisError) {
+        console.error('Error in emotional analysis:', analysisError);
+        emotionalAnalysis = {
+          primary_emotion: 'neutral',
+          confidence: 0.5,
+          provider: 'fallback'
+        };
+      }
     } else {
+      console.log('Text too short for analysis, using fallback');
       emotionalAnalysis = {
         primary_emotion: 'neutral',
         confidence: 0.5,

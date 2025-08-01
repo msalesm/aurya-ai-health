@@ -26,7 +26,7 @@ serve(async (req) => {
       }
 
       // First, get an ephemeral token
-      console.log('Getting ephemeral token from OpenAI...');
+      console.log('Creating OpenAI Realtime session...');
       const tokenResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
         method: "POST",
         headers: {
@@ -36,10 +36,10 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "gpt-4o-realtime-preview-2024-12-17",
           voice: "alloy",
+          modalities: ["audio", "text"],
           instructions: `Você é um assistente médico especializado em triagem e análise de saúde. 
 
 Sua função é:
-- Cumprimentar o paciente imediatamente quando a conversa iniciar
 - Conduzir entrevistas médicas de forma empática e profissional
 - Fazer perguntas direcionadas sobre sintomas e histórico médico
 - Avaliar urgência médica baseada nas respostas
@@ -51,9 +51,22 @@ Diretrizes importantes:
 - Seja objetivo mas cuidadoso
 - Sempre reforce que não substitui consulta médica presencial
 - Em casos de emergência, oriente imediatamente para serviços de urgência
-- IMPORTANTE: Inicie SEMPRE a conversa perguntando como o paciente está se sentindo
 
-Responda sempre em português brasileiro e mantenha um tom profissional e acolhedor.`
+Responda sempre em português brasileiro e mantenha um tom profissional e acolhedor.`,
+          voice: "alloy",
+          output_audio_format: "pcm16",
+          input_audio_format: "pcm16",
+          turn_detection: {
+            type: "server_vad",
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 200,
+            create_response: true,
+            interrupt_response: true
+          },
+          temperature: 0.8,
+          max_response_output_tokens: "inf",
+          speed: 1
         }),
       });
 

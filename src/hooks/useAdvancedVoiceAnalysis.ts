@@ -239,7 +239,11 @@ const performHybridAnalysis = async (audioBlob: Blob) => {
   });
 
   const { data, error } = await supabase.functions.invoke('hybrid-voice-analysis', {
-    body: { audio: base64Audio }
+    body: { 
+      audioData: base64Audio,
+      userId: 'anonymous-user', // Fallback para análise sem autenticação
+      preferredProvider: 'openai'
+    }
   });
 
   if (error) throw error;
