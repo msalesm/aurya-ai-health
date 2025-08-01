@@ -128,10 +128,13 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       reader.readAsDataURL(audioBlob);
       const audioBase64 = await base64Promise;
 
-      // Enviar para análise
+      // Enviar para análise com headers corretos
       const response = await supabase.functions.invoke('voice-analysis', {
-        body: {
+        body: JSON.stringify({
           audio: audioBase64
+        }),
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
 

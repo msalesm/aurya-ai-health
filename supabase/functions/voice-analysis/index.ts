@@ -15,12 +15,43 @@ serve(async (req) => {
 
   try {
     console.log('Voice analysis function called');
+    console.log('Content-Type:', req.headers.get('content-type'));
 
     if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+      console.error('OpenAI API key not configured');
+      return new Response(JSON.stringify({ 
+        error: 'OpenAI API key not configured',
+        success: false
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { audio } = await req.json();
+    // Robust JSON parsing with validation
+    let requestBody;
+    try {
+      const text = await req.text();
+      console.log('Request body length:', text.length);
+      console.log('Request body preview:', text.substring(0, 100));
+      
+      if (!text || text.trim() === '') {
+        throw new Error('Empty request body');
+      }
+      
+      requestBody = JSON.parse(text);
+    } catch (parseError) {
+      console.error('JSON parsing error:', parseError.message);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        success: false
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { audio } = requestBody;
     
     if (!audio) {
       throw new Error('No audio data provided');
@@ -72,7 +103,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
