@@ -10,15 +10,18 @@ const corsHeaders = {
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
+  console.log('=== Voice Analysis Function Started ===');
+  console.log('Request method:', req.method);
+  console.log('Content-Type header:', req.headers.get('content-type'));
+  console.log('Content-Length:', req.headers.get('content-length'));
+  console.log('User-Agent:', req.headers.get('user-agent'));
+  
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Voice analysis function called');
-    console.log('Request method:', req.method);
-    console.log('Content-Type header:', req.headers.get('content-type'));
-    console.log('Content-Type:', req.headers.get('content-type'));
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not configured');
@@ -31,21 +34,34 @@ serve(async (req) => {
       });
     }
 
-    // Process FormData
-    const formData = await req.formData();
-    console.log('FormData processed successfully');
+    // Process FormData with enhanced error handling
+    console.log('Attempting to parse FormData...');
+    let formData;
+    try {
+      formData = await req.formData();
+      console.log('✅ FormData parsed successfully');
+    } catch (formError) {
+      console.error('❌ FormData parsing failed:', formError);
+      console.error('Request headers:', Object.fromEntries(req.headers.entries()));
+      throw new Error(`FormData parsing failed: ${formError.message}`);
+    }
     
     // Log FormData entries for debugging
     const entries = [];
+    console.log('Processing FormData entries...');
     for (const [key, value] of formData.entries()) {
-      entries.push({
+      const entry = {
         key,
         type: typeof value,
         isFile: value instanceof File,
-        size: value instanceof File ? value.size : value.length
-      });
+        size: value instanceof File ? value.size : (value as string).length,
+        fileName: value instanceof File ? value.name : 'N/A',
+        fileType: value instanceof File ? value.type : 'N/A'
+      };
+      entries.push(entry);
+      console.log(`FormData entry - ${key}:`, entry);
     }
-    console.log('FormData entries:', JSON.stringify(entries, null, 2));
+    console.log('All FormData entries:', JSON.stringify(entries, null, 2));
 
     const audioFile = formData.get('audio') as File;
     const userId = formData.get('user_id') as string;
@@ -60,20 +76,44 @@ serve(async (req) => {
     }, null, 2));
 
     if (!audioFile) {
+      console.error('❌ No audio file found in FormData');
       throw new Error('No audio file provided');
     }
 
-    console.log('Audio file details:', JSON.stringify({
+    console.log('✅ Audio file validation passed:', {
       type: audioFile.type,
       size: audioFile.size,
-      fileName: audioFile.name
-    }));
+      fileName: audioFile.name,
+      sizeInMB: (audioFile.size / (1024 * 1024)).toFixed(2)
+    });
+
+    // Validate audio file
+    if (audioFile.size === 0) {
+      throw new Error('Audio file is empty');
+    }
+    
+    if (audioFile.size > 25 * 1024 * 1024) { // 25MB limit
+      throw new Error('Audio file too large (max 25MB)');
+    }
 
     // Prepare form data for OpenAI Whisper
+    console.log('Preparing Whisper FormData...');
     const whisperFormData = new FormData();
-    whisperFormData.append('file', audioFile, audioFile.name);
+    
+    // Create a new File object to ensure proper MIME type
+    const audioFileName = audioFile.name || 'recording.ogg';
+    const audioFileType = audioFile.type || 'audio/ogg';
+    
+    whisperFormData.append('file', audioFile, audioFileName);
     whisperFormData.append('model', 'whisper-1');
     whisperFormData.append('language', 'pt');
+    
+    console.log('Whisper FormData prepared:', {
+      fileName: audioFileName,
+      fileType: audioFileType,
+      model: 'whisper-1',
+      language: 'pt'
+    });
 
     console.log('Enviando para OpenAI Whisper...');
 

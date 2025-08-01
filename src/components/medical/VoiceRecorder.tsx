@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mic, MicOff, Square, Play, Pause } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
+import OpusMediaRecorder from 'opus-media-recorder';
 
 interface VoiceRecorderProps {
   onAnalysisComplete?: (analysis: any) => void;
@@ -20,7 +21,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaRecorderRef = useRef<OpusMediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -36,9 +37,11 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
   const startRecording = async () => {
     try {
+      console.log('Iniciando gravação com Opus...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 44100,
+          sampleRate: 48000, // Optimized for voice analysis
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -46,21 +49,29 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         } 
       });
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+      // Use OpusMediaRecorder with optimized settings
+      const mediaRecorder = new OpusMediaRecorder(stream, {
+        mimeType: 'audio/ogg;codecs=opus'
+      }, {
+        OggOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/OggOpusEncoder.wasm',
+        WebMOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/WebMOpusEncoder.wasm'
       });
+      
       mediaRecorderRef.current = mediaRecorder;
 
       const chunks: BlobPart[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
+        console.log('Dados de áudio disponíveis:', event.data.size);
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        console.log('Gravação finalizada, criando blob...');
+        const blob = new Blob(chunks, { type: 'audio/ogg;codecs=opus' });
+        console.log('Blob criado:', blob.size, 'bytes');
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -116,22 +127,32 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     setIsAnalyzing(true);
     
     try {
-      // Criar FormData para enviar como no mind-balance
+      console.log('Iniciando análise de voz...', {
+        blobSize: audioBlob.size,
+        blobType: audioBlob.type,
+        recordingTime
+      });
+      
+      // Criar FormData com boundary correto
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'audio.webm');
-      formData.append('user_id', 'anonymous-user'); // ou pegar de auth se disponível
+      formData.append('audio', audioBlob, 'recording.ogg');
+      formData.append('user_id', 'anonymous-user');
       formData.append('session_duration', recordingTime.toString());
 
-      // Enviar para análise usando FormData
+      console.log('FormData criado, enviando para edge function...');
+
+      // Enviar diretamente para a edge function com headers corretos
       const response = await supabase.functions.invoke('voice-analysis', {
         body: formData
       });
+
+      console.log('Resposta da edge function:', response);
 
       if (response.error) {
         throw new Error(response.error.message);
       }
 
-      console.log('Análise de voz:', response.data);
+      console.log('Análise de voz bem-sucedida:', response.data);
       
       if (onAnalysisComplete) {
         onAnalysisComplete(response.data);
