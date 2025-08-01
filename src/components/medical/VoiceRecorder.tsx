@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mic, MicOff, Square, Play, Pause } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import OpusMediaRecorder from 'opus-media-recorder';
 
 interface VoiceRecorderProps {
   onAnalysisComplete?: (analysis: any) => void;
@@ -21,7 +20,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  const mediaRecorderRef = useRef<OpusMediaRecorder | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,11 +36,9 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
   const startRecording = async () => {
     try {
-      console.log('Iniciando gravação...');
-      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 44100, // Padrão para compatibilidade
+          sampleRate: 44100,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -49,76 +46,21 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         } 
       });
       
-      // Detectar suporte para Opus e usar fallback se necessário
-      let mediaRecorder;
-      
-      // Tentar OpusMediaRecorder primeiro
-      if (typeof OpusMediaRecorder !== 'undefined') {
-        try {
-          console.log('Usando OpusMediaRecorder...');
-          mediaRecorder = new OpusMediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus'
-          }, {
-            OggOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/OggOpusEncoder.wasm',
-            WebMOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/WebMOpusEncoder.wasm'
-          });
-        } catch (opusError) {
-          console.warn('OpusMediaRecorder falhou, usando MediaRecorder nativo:', opusError);
-          mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus'
-          });
-        }
-      } else {
-        console.log('Usando MediaRecorder nativo...');
-        // Fallback para MediaRecorder nativo
-        const mimeTypes = [
-          'audio/webm;codecs=opus',
-          'audio/webm',
-          'audio/mp4',
-          'audio/wav'
-        ];
-        
-        let selectedMimeType = '';
-        for (const mimeType of mimeTypes) {
-          if (MediaRecorder.isTypeSupported(mimeType)) {
-            selectedMimeType = mimeType;
-            break;
-          }
-        }
-        
-        mediaRecorder = new MediaRecorder(stream, {
-          mimeType: selectedMimeType || undefined
-        });
-      }
-      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       mediaRecorderRef.current = mediaRecorder;
 
       const chunks: BlobPart[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
-        console.log('Dados de áudio disponíveis:', event.data.size);
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        console.log('Gravação finalizada, criando blob...');
-        const mimeType = mediaRecorder.mimeType || 'audio/webm;codecs=opus';
-        const blob = new Blob(chunks, { type: mimeType });
-        console.log('Blob criado:', {
-          size: blob.size,
-          type: blob.type,
-          chunks: chunks.length
-        });
-        
-        // Validação adicional do blob
-        if (blob.size === 0) {
-          console.error('Blob vazio criado!');
-          alert('Erro: Gravação resultou em arquivo vazio');
-          return;
-        }
-        
+        const blob = new Blob(chunks, { type: 'audio/webm' });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -169,87 +111,61 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   };
 
   const analyzeVoice = async () => {
-    if (!audioBlob) {
-      console.error('Nenhum audioBlob disponível');
-      return;
-    }
-
-    // Validação adicional do audioBlob
-    if (audioBlob.size === 0) {
-      console.error('AudioBlob está vazio');
-      alert('Erro: Arquivo de áudio está vazio');
-      return;
-    }
+    if (!audioBlob) return;
 
     setIsAnalyzing(true);
     
     try {
-      console.log('=== INICIANDO ANÁLISE DE VOZ ===');
-      console.log('AudioBlob:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        recordingTime: recordingTime
+      // Converter blob para base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(',')[1]); // Remove data URL prefix
+        };
       });
       
-      // Criar FormData com boundary correto (sem Content-Type manual)
-      const formData = new FormData();
-      
-      // Usar nome de arquivo específico baseado no tipo
-      const fileName = audioBlob.type.includes('webm') ? 'recording.webm' : 'recording.ogg';
-      formData.append('audio', audioBlob, fileName);
-      formData.append('user_id', 'anonymous-user');
-      formData.append('session_duration', recordingTime.toString());
+      reader.readAsDataURL(audioBlob);
+      const audioBase64 = await base64Promise;
 
-      // Debug do FormData
-      console.log('FormData entries:');
-      for (const [key, value] of formData.entries()) {
-        if (value instanceof File) {
-          console.log(`${key}:`, { name: value.name, size: value.size, type: value.type });
-        } else {
-          console.log(`${key}:`, value);
+      // Enviar para análise
+      const response = await supabase.functions.invoke('voice-analysis', {
+        body: {
+          audio: audioBase64,
+          analysisType
         }
-      }
-
-      console.log('Enviando para edge function...');
-
-      // Enviar sem Content-Type manual (deixar o browser definir com boundary)
-      const response = await fetch('https://skwpuolpkgntqdmgzwlr.supabase.co/functions/v1/voice-analysis', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
-          'apikey': `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
-          // Não incluir Content-Type - deixar o browser definir automaticamente
-        },
-        body: formData
       });
 
-      console.log('Resposta da edge function:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Edge function error:', errorText);
-        throw new Error(`Edge function error: ${response.status} - ${errorText}`);
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
-      const data = await response.json();
-      console.log('Análise de voz bem-sucedida:', data);
+      console.log('Análise de voz:', response.data);
       
       if (onAnalysisComplete) {
-        onAnalysisComplete(data);
+        onAnalysisComplete(response.data);
       }
 
     } catch (error) {
       console.error('Erro na análise de voz:', error);
       
-      // Fallback com dados simulados para contexto médico
+      // Fallback com dados simulados
       const mockAnalysis = {
-        transcription: "Análise de voz mock - erro na análise",
-        emotional_tone: { dominant: "neutro", confidence: 0.7 },
-        stress_indicators: { level: "baixo", score: 25 },
-        medical_indicators: { respiratory_pattern: "normal", speech_clarity: 80 },
-        psychological_analysis: { mood_score: 75, energy_level: 70 },
-        voice_metrics: { speech_rate: 150, clarity: 85, confidence_level: 80 },
-        confidence_score: 0.7
+        emotion: {
+          primary: 'calm',
+          confidence: 0.85,
+          stress_level: 'low'
+        },
+        speech: {
+          clarity: 'good',
+          speech_rate: 'normal',
+          respiratory_pattern: 'regular'
+        },
+        health: {
+          vocal_tremor: false,
+          breathiness: 'minimal',
+          overall_health_score: 88
+        }
       };
       
       if (onAnalysisComplete) {

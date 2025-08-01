@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Camera, Heart, Eye, Zap, Play, Square, ArrowRight, Thermometer, CheckCircle } from 'lucide-react';
+import { Camera, Heart, Eye, Zap, Play, Square, ArrowRight, Thermometer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useRPPG } from '@/hooks/useRPPG';
@@ -38,7 +38,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
   });
   const [thermalState, setThermalState] = useState<'normal' | 'possible_fever' | 'indeterminate'>('indeterminate');
   const [canContinue, setCanContinue] = useState(false);
-  const [analysisCompleted, setAnalysisCompleted] = useState(false);
   
   const { toast } = useToast();
   const { vitalSigns, updateFromFacialAnalysis } = useVitalSigns();
@@ -125,25 +124,12 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
       setProgress(Math.min(currentProgress, 100));
       
       if (currentProgress >= 100) {
-        setAnalysisCompleted(true);
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-        }
+        completeTelemetry();
       }
       
-      // Allow continue after 8 seconds
-      if (currentProgress >= 53.3) { // 8 seconds
+      // Allow continue after 10 seconds
+      if (currentProgress >= 66.7) { // 10 seconds
         setCanContinue(true);
-      }
-      
-      // Auto-complete after 15 seconds if user hasn't acted
-      if (currentProgress >= 100) {
-        setAnalysisCompleted(true);
-        setTimeout(() => {
-          if (isRecording) {
-            completeTelemetry();
-          }
-        }, 1000); // Reduzido para 1 segundo
       }
     }, 1000);
     
@@ -259,16 +245,11 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     });
   };
 
+  const continueToNextStep = () => {
+    completeTelemetry();
+  };
 
   const completeTelemetry = async () => {
-    console.log('completeTelemetry called - starting cleanup and data compilation');
-    
-    // Prevent multiple calls
-    if (!isRecording) {
-      console.log('completeTelemetry: Already completed, ignoring call');
-      return;
-    }
-    
     setIsRecording(false);
     
     // Stop intervals and rPPG analysis
@@ -351,15 +332,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     };
     
     stopTelemetry();
-    
-    console.log('Facial analysis completed, calling onComplete with data:', telemetryData);
-    
-    // Show success feedback
-    toast({
-      title: "✅ Análise Facial Concluída",
-      description: "Dados biométricos coletados com sucesso. Seguindo para análise de voz...",
-    });
-    
     onComplete(telemetryData);
   };
 
@@ -448,63 +420,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Controles Unificados - Responsivos */}
-          <div className="bg-card border rounded-lg p-4 mb-4">
-            {!isRecording ? (
-              <div className="text-center space-y-3">
-                <Button 
-                  onClick={startTelemetry} 
-                  size="lg" 
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3"
-                >
-                  <Play className="h-5 w-5 mr-2" />
-                  Iniciar Análise Facial
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  📱 Posicione-se bem iluminado e olhe diretamente para a câmera
-                </div>
-              </div>
-            ) : (
-              <div className="text-center space-y-3">
-                <div className="mb-2">
-                  <div className="text-sm font-medium mb-1">
-                    {analysisCompleted ? "✅ Análise Concluída!" : `⏳ Analisando... ${Math.round(progress)}%`}
-                  </div>
-                  {canContinue && !analysisCompleted && (
-                    <div className="text-xs text-green-600 font-medium">
-                      ✓ Dados suficientes coletados - pode continuar
-                    </div>
-                  )}
-                  {analysisCompleted && (
-                    <div className="text-xs text-blue-600 font-medium animate-pulse">
-                      ⏳ Finalizando análise...
-                    </div>
-                  )}
-                </div>
-                
-                <Button 
-                  onClick={completeTelemetry}
-                  disabled={!canContinue}
-                  size="lg" 
-                  className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-3"
-                >
-                  <ArrowRight className="h-5 w-5 mr-2" />
-                  {analysisCompleted ? "Seguir para Análise de Voz" : "Continuar com Dados Atuais"}
-                </Button>
-                
-                <Button 
-                  onClick={stopTelemetry}
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                >
-                  <Square className="h-4 w-4 mr-2" />
-                  Cancelar Análise
-                </Button>
-              </div>
-            )}
-          </div>
-
           {/* Video Feed */}
           <div className="relative bg-muted rounded-lg overflow-hidden">
             <video
@@ -516,22 +431,13 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             
             {faceDetected && (
               <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-sm">
-                Face Detectada
+                Face Detected
               </div>
             )}
             
             {isRecording && (
               <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm animate-pulse">
-                Gravando
-              </div>
-            )}
-
-            {analysisCompleted && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <div className="text-white text-center">
-                  <CheckCircle className="h-16 w-16 mx-auto mb-2" />
-                  <div className="text-lg font-semibold">Análise Concluída!</div>
-                </div>
+                Recording
               </div>
             )}
           </div>
@@ -541,7 +447,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <p className="text-sm text-center text-muted-foreground">
-                Analisando... {Math.round(progress)}%
+                Analyzing... {Math.round(progress)}%
               </p>
             </div>
           )}
@@ -667,20 +573,31 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             </div>
           </div>
 
-          {/* Informações adicionais para desktop */}
-          <div className="hidden md:block">
-            <div className="text-center text-sm text-muted-foreground">
-              {isRecording ? (
-                <>
-                  {!canContinue ? 
-                    "⏳ Coletando dados biométricos..." : 
-                    analysisCompleted ? 
-                      "✅ Análise completa - pronto para continuar" :
-                      "✓ Dados suficientes - você pode continuar ou aguardar"
-                  }
-                </>
+          {/* Controls */}
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            
+            <div className="space-x-2">
+              {!isRecording ? (
+                <Button onClick={startTelemetry} className="space-x-2">
+                  <Play className="h-4 w-4" />
+                  <span>Start Analysis</span>
+                </Button>
               ) : (
-                "Posicione-se em boa iluminação e mantenha o rosto visível durante a análise"
+                <>
+                  {canContinue && (
+                    <Button onClick={continueToNextStep} className="space-x-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>Continuar para Anamnese</span>
+                    </Button>
+                  )}
+                  <Button onClick={stopTelemetry} variant="outline" className="space-x-2">
+                    <Square className="h-4 w-4" />
+                    <span>Parar</span>
+                  </Button>
+                </>
               )}
             </div>
           </div>

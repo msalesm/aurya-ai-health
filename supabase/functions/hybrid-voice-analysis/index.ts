@@ -15,35 +15,10 @@ serve(async (req) => {
   }
 
   try {
-    // Detectar formato da requisição (JSON ou FormData)
-    const contentType = req.headers.get('content-type') || '';
-    let audioData, userId, preferredProvider = 'openai';
+    const { audioData, userId, preferredProvider = 'openai' } = await req.json();
 
-    if (contentType.includes('application/json')) {
-      const jsonData = await req.json();
-      audioData = jsonData.audioData || jsonData.audio;
-      userId = jsonData.userId || jsonData.user_id || 'anonymous-user';
-      preferredProvider = jsonData.preferredProvider || 'openai';
-    } else {
-      // Fallback para FormData (compatibilidade com voice-analysis)
-      const formData = await req.formData();
-      const audioFile = formData.get('audio') as File;
-      userId = formData.get('user_id') as string || 'anonymous-user';
-      
-      if (audioFile) {
-        const arrayBuffer = await audioFile.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        audioData = `data:${audioFile.type};base64,${base64}`;
-      }
-    }
-
-    if (!audioData) {
-      return new Response(JSON.stringify({ 
-        error: 'Audio data is required. Send as "audioData" in JSON or "audio" file in FormData.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!audioData || !userId) {
+      throw new Error('Audio data and userId are required');
     }
 
     console.log(`Processing hybrid voice analysis for user: ${userId} with provider: ${preferredProvider}`);
@@ -61,26 +36,14 @@ serve(async (req) => {
     }
 
     // 2. Análise emocional - Híbrida (OpenAI + Google Natural Language)
-    if (transcription.text && transcription.text.length > 5) {
-      console.log('Starting emotional analysis for text:', transcription.text.substring(0, 50));
-      
-      try {
-        const [openAIEmotion, googleEmotion] = await Promise.allSettled([
-          analyzeEmotionWithOpenAI(transcription.text),
-          analyzeEmotionWithGoogle(transcription.text)
-        ]);
+    if (transcription.text && transcription.text.length > 10) {
+      const [openAIEmotion, googleEmotion] = await Promise.allSettled([
+        analyzeEmotionWithOpenAI(transcription.text),
+        analyzeEmotionWithGoogle(transcription.text)
+      ]);
 
-        emotionalAnalysis = combineEmotionalAnalysis(openAIEmotion, googleEmotion);
-      } catch (analysisError) {
-        console.error('Error in emotional analysis:', analysisError);
-        emotionalAnalysis = {
-          primary_emotion: 'neutral',
-          confidence: 0.5,
-          provider: 'fallback'
-        };
-      }
+      emotionalAnalysis = combineEmotionalAnalysis(openAIEmotion, googleEmotion);
     } else {
-      console.log('Text too short for analysis, using fallback');
       emotionalAnalysis = {
         primary_emotion: 'neutral',
         confidence: 0.5,
@@ -88,8 +51,8 @@ serve(async (req) => {
       };
     }
 
-    // 3. Análise de estresse vocal (baseada em características temporais e linguísticas)
-    const stressAnalysis = analyzeVocalStress(transcription.text, transcription);
+    // 3. Análise de estresse vocal (simulada baseada em características de áudio)
+    const stressAnalysis = analyzeVocalStress(transcription.text);
 
     // 4. Análise respiratória baseada no padrão de fala
     const respiratoryAnalysis = analyzeRespiratoryFromSpeech(transcription.text);
@@ -119,22 +82,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in hybrid voice analysis:', error);
-    
-    // Retornar erro 400 para problemas de formato de dados
-    const isDataError = error.message && (
-      error.message.includes('required') ||
-      error.message.includes('Audio data') ||
-      error.message.includes('format')
-    );
-    
-    const status = isDataError ? 400 : 500;
-    
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unexpected error occurred',
-      success: false,
-      status: status
+      error: error.message || 'An unexpected error occurred' 
     }), {
-      status: status,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -144,7 +95,7 @@ async function transcribeWithOpenAI(audioData: string) {
   try {
     console.log('Transcribing with OpenAI Whisper...');
     
-    // Converter base64 para blob - melhor tratamento para WebM Opus
+    // Converter base64 para blob
     const cleanBase64 = audioData.replace(/^data:audio\/[^;]+;base64,/, '');
     const binaryString = atob(cleanBase64);
     const bytes = new Uint8Array(binaryString.length);
@@ -153,13 +104,12 @@ async function transcribeWithOpenAI(audioData: string) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    const audioBlob = new Blob([bytes], { type: 'audio/webm;codecs=opus' });
+    const audioBlob = new Blob([bytes], { type: 'audio/webm' });
     
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-1');
     formData.append('language', 'pt');
-    formData.append('response_format', 'verbose_json'); // Dados extras para análise
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -174,13 +124,7 @@ async function transcribeWithOpenAI(audioData: string) {
     }
 
     const data = await response.json();
-    return { 
-      text: data.text, 
-      provider: 'ai_transcription',
-      duration: data.duration || 0,
-      segments: data.segments || [],
-      language: data.language || 'pt'
-    };
+    return { text: data.text, provider: 'ai_transcription' };
     
   } catch (error) {
     console.error('OpenAI transcription failed:', error);
@@ -364,8 +308,8 @@ function combineEmotionalAnalysis(openAIResult: any, googleResult: any) {
   };
 }
 
-function analyzeVocalStress(text: string, transcriptionData: any = {}) {
-  // Análise de estresse baseada no conteúdo textual E características temporais
+function analyzeVocalStress(text: string) {
+  // Análise de estresse baseada no conteúdo textual E características de fala
   const stressKeywords = ['dor', 'preocupado', 'ansioso', 'nervoso', 'estresse', 'medo', 'tensão', 'pânico', 'desespero'];
   const calmKeywords = ['calmo', 'tranquilo', 'bem', 'normal', 'relaxado', 'sereno', 'paz'];
   
@@ -386,26 +330,6 @@ function analyzeVocalStress(text: string, transcriptionData: any = {}) {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const avgSentenceLength = sentences.length > 0 ? text.length / sentences.length : 0;
   const interruptionMarkers = (text.match(/\.\.\.|,|;/g) || []).length;
-  
-  // Análise temporal baseada em segmentos da transcrição
-  if (transcriptionData.segments && transcriptionData.segments.length > 0) {
-    const segments = transcriptionData.segments;
-    let totalPauses = 0;
-    let speechRate = 0;
-    
-    for (let i = 1; i < segments.length; i++) {
-      const pause = segments[i].start - segments[i-1].end;
-      if (pause > 0.5) totalPauses++; // Pausas longas
-    }
-    
-    // Taxa de fala (palavras por minuto)
-    const totalDuration = transcriptionData.duration || 1;
-    speechRate = (words.length / totalDuration) * 60;
-    
-    // Indicadores temporais de stress
-    if (speechRate > 180 || speechRate < 100) stressScore += 1; // Muito rápido ou lento
-    if (totalPauses > segments.length * 0.4) stressScore += 1; // Muitas pausas
-  }
   
   // Frases muito curtas ou interrompidas podem indicar stress
   if (avgSentenceLength < 15) stressScore += 1;
@@ -429,22 +353,8 @@ function analyzeVocalStress(text: string, transcriptionData: any = {}) {
     interruption_frequency: interruptionMarkers,
     repetition_count: repetitions,
     sentence_fragmentation: avgSentenceLength < 15,
-    temporal_analysis: {
-      segments_count: transcriptionData.segments?.length || 0,
-      estimated_speech_rate: transcriptionData.duration ? (words.length / transcriptionData.duration) * 60 : 0,
-      pause_frequency: transcriptionData.segments ? countLongPauses(transcriptionData.segments) : 0
-    },
-    indicators: stressScore > 3 ? ['linguistic_stress_markers', 'speech_pattern_irregularities', 'temporal_anomalies'] : ['normal_speech_patterns']
+    indicators: stressScore > 3 ? ['linguistic_stress_markers', 'speech_pattern_irregularities'] : ['normal_speech_patterns']
   };
-}
-
-function countLongPauses(segments: any[]): number {
-  let longPauses = 0;
-  for (let i = 1; i < segments.length; i++) {
-    const pause = segments[i].start - segments[i-1].end;
-    if (pause > 0.5) longPauses++;
-  }
-  return longPauses;
 }
 
 function analyzeRespiratoryFromSpeech(text: string) {

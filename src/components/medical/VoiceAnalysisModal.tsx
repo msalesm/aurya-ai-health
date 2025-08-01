@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Mic, Square, Play, Pause } from "lucide-react";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
-import { useAdvancedVoiceAnalysis } from "@/hooks/useAdvancedVoiceAnalysis";
 
 interface VoiceAnalysisModalProps {
   isOpen: boolean;
@@ -26,11 +25,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
     analyzeVoice,
     error
   } = useVoiceRecording();
-
-  const { 
-    analyzeAdvancedVoicePatterns,
-    isAnalyzing: isAdvancedAnalyzing 
-  } = useAdvancedVoiceAnalysis();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -61,35 +55,10 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   const handleAnalyze = async () => {
     if (audioData) {
       try {
-        // Realizar análise híbrida (básica + avançada)
-        const basicResult = await analyzeVoice();
-        
-        // Análise avançada será implementada com dados corretos do audioData
-        let advancedResult = null;
-        // Note: audioData é string, precisaria converter para Blob para análise avançada
-        // Por enquanto, usando apenas análise básica aprimorada
-        
-        // Combinar resultados
-        const combinedResult = {
-          ...basicResult,
-          ...(advancedResult && {
-            advancedMetrics: advancedResult.advancedMetrics,
-            enhancedConfidence: advancedResult.confidence,
-            recommendations: advancedResult.recommendations,
-            riskFactors: advancedResult.riskFactors
-          })
-        };
-        
-        setAnalysisResult(combinedResult);
+        const result = await analyzeVoice();
+        setAnalysisResult(result);
       } catch (err) {
         console.error('Erro na análise:', err);
-        // Fallback para análise básica
-        try {
-          const basicResult = await analyzeVoice();
-          setAnalysisResult(basicResult);
-        } catch (fallbackErr) {
-          console.error('Erro na análise básica:', fallbackErr);
-        }
       }
     }
   };
@@ -167,20 +136,15 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           </div>
 
           {/* Resultado da Análise */}
-          {(isProcessing || isAdvancedAnalyzing) && (
-            <div className="text-center space-y-2">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-sm text-muted-foreground">
-                {isAdvancedAnalyzing ? "Executando análise avançada..." : "Analisando padrões de voz..."}
-              </p>
+          {isProcessing && (
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Analisando padrões de voz...</p>
             </div>
           )}
 
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
               <h3 className="font-semibold">Resultado da Análise:</h3>
-              
-              {/* Métricas Clínicas */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-medium">Estado Emocional:</p>
@@ -196,73 +160,9 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
                 </div>
                 <div>
                   <p className="font-medium">Confiança:</p>
-                  <p>{Math.round((analysisResult.enhancedConfidence || analysisResult.confidence || 0.8) * 100)}%</p>
+                  <p>{Math.round((analysisResult.confidence || 0.8) * 100)}%</p>
                 </div>
               </div>
-
-              {/* Análise Detalhada */}
-              {analysisResult.advancedMetrics && (
-                <div className="border-t pt-3 space-y-3">
-                  <h4 className="font-medium text-sm">Análise Detalhada:</h4>
-                  
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <p className="font-medium">Freq. Fundamental:</p>
-                      <p>{analysisResult.advancedMetrics.fundamentalFrequency.toFixed(1)} Hz</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Jitter:</p>
-                      <p>{(analysisResult.advancedMetrics.jitter * 100).toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Tremor:</p>
-                      <p>{(analysisResult.advancedMetrics.tremor * 100).toFixed(1)}%</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Taxa Respiratória:</p>
-                      <p>{analysisResult.advancedMetrics.breathingPattern.rate.toFixed(1)}/min</p>
-                    </div>
-                  </div>
-
-                  {/* Indicadores Clínicos */}
-                  <div className="space-y-2">
-                    <p className="font-medium text-xs">Indicadores Clínicos:</p>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Estresse:</span>
-                        <span>{Math.round(analysisResult.advancedMetrics.emotionalIndicators.stress * 100)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Ansiedade:</span>
-                        <span>{Math.round(analysisResult.advancedMetrics.emotionalIndicators.anxiety * 100)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Fadiga:</span>
-                        <span>{Math.round(analysisResult.advancedMetrics.emotionalIndicators.fatigue * 100)}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Confiança:</span>
-                        <span>{Math.round(analysisResult.advancedMetrics.emotionalIndicators.confidence * 100)}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recomendações */}
-                  {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="font-medium text-xs">Recomendações:</p>
-                      <ul className="text-xs space-y-1">
-                        {analysisResult.recommendations.map((rec: string, index: number) => (
-                          <li key={index} className="flex items-start gap-1">
-                            <span className="text-primary">•</span>
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
               
               <Button onClick={handleComplete} className="w-full">
                 Concluir Análise
@@ -277,14 +177,9 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           )}
 
           {/* Instruções */}
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
-            <h4 className="font-medium text-blue-900 text-sm">💬 Instruções de Gravação:</h4>
-            <ul className="text-xs text-blue-700 space-y-1">
-              <li>• Descreva como você está se sentindo hoje</li>
-              <li>• Mencione seus principais sintomas ou desconfortos</li>
-              <li>• Fale sobre quando os sintomas começaram</li>
-              <li>• A IA analisará sua voz, respiração e emoção</li>
-            </ul>
+          <div className="text-xs text-muted-foreground text-center">
+            Fale naturalmente sobre como você está se sentindo. 
+            A IA analisará padrões de voz, respiração e emoção.
           </div>
         </div>
       </DialogContent>

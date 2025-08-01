@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
-import { toast } from '@/hooks/use-toast';
 import { 
   FileText, 
   Download, 
@@ -14,47 +13,28 @@ import {
   Heart,
   Thermometer,
   Gauge,
-  Droplets,
-  Share2,
-  Printer,
-  X,
-  Mail,
-  ArrowRight
+  Droplets
 } from "lucide-react";
-
-interface PatientData {
-  fullName: string;
-  birthDate: string;
-  age?: number;
-}
 
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete?: (data: any) => void;
   voiceAnalysis?: any;
   facialAnalysis?: any;
   anamnesisResults?: any;
-  voiceAssistantResults?: any;
-  patientData?: PatientData | null;
 }
 
 export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   isOpen,
   onClose,
-  onComplete,
   voiceAnalysis,
   facialAnalysis,
-  anamnesisResults,
-  voiceAssistantResults,
-  patientData
+  anamnesisResults
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
   const [snapshotVitalSigns, setSnapshotVitalSigns] = useState<any>(null);
-  const [showReportPreview, setShowReportPreview] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
   
   const { captureVitalSignsSnapshot, updateFromFacialAnalysis, updateFromVoiceAnalysis } = useVitalSigns();
 
@@ -81,8 +61,6 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     
     const report = {
       patientId: `PAT-${Date.now()}`,
-      patientName: patientData?.fullName || 'Paciente Anônimo',
-      patientAge: patientData?.age,
       timestamp: new Date().toISOString(),
       vitalSigns: vitalSnapshot,
       overallUrgency: calculateOverallUrgency(),
@@ -90,8 +68,7 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       riskFactors: identifyRiskFactors(),
       recommendations: generateRecommendations(),
       confidence: calculateOverallConfidence(),
-      dataQuality: assessDataQuality(),
-      hasConversationalData: !!anamnesisResults?.conversationalData
+      dataQuality: assessDataQuality()
     };
     
     setClinicalReport(report);
@@ -186,16 +163,8 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     return 'Parcial';
   };
 
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-
-  const previewReport = () => {
-    setShowReportPreview(true);
-  };
-
-  const downloadPDFReport = async () => {
-    if (!clinicalReport || isGeneratingReport) return;
-    
-    setIsGeneratingReport(true);
+  const generatePDFReport = async () => {
+    if (!clinicalReport) return;
     
     try {
       // Importar jsPDF dinamicamente
@@ -205,153 +174,49 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // CABEÇALHO ESTILO DASHBOARD
-      doc.setFillColor(240, 248, 255); // bg-gradient-subtle equivalent
-      doc.rect(15, 15, 180, 45, 'F');
+      // Cabeçalho
+      doc.setFontSize(18);
+      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
       
-      doc.setFontSize(24);
-      doc.setTextColor(41, 128, 185); // primary color
-      doc.text('AURYA', 20, 32);
       doc.setFontSize(12);
-      doc.setTextColor(100, 100, 100);
-      doc.text('Triagem Médica Inteligente com IA', 20, 40);
+      doc.text(`Paciente ID: ${clinicalReport.patientId}`, 20, 35);
+      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 45);
       
-      // Score Geral de Saúde - Card estilo dashboard
-      doc.setFillColor(245, 250, 255); // Card background
-      doc.setDrawColor(230, 230, 230);
-      doc.rect(20, 70, 170, 35, 'FD');
-      
-      doc.setFontSize(16);
-      doc.setTextColor(41, 128, 185);
-      doc.text('Score Geral de Saúde', 25, 82);
-      
-      const healthScore = clinicalReport.confidence;
-      const scoreColor: [number, number, number] = healthScore >= 80 ? [34, 197, 94] : healthScore >= 60 ? [245, 158, 11] : [239, 68, 68];
-      doc.setFontSize(24);
-      doc.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
-      doc.text(`${healthScore}/100`, 25, 95);
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Baseado em dados de ${clinicalReport.dataQuality} qualidade`, 25, 100);
-      
-      // Badge de urgência
-      const urgencyColors: Record<string, [number, number, number]> = {
-        'Crítica': [239, 68, 68],
-        'Alta': [245, 158, 11],
-        'Média': [156, 163, 175],
-        'Baixa': [34, 197, 94]
-      };
-      const urgencyColor = urgencyColors[clinicalReport.overallUrgency.level] || [156, 163, 175];
-      doc.setFillColor(urgencyColor[0], urgencyColor[1], urgencyColor[2]);
-      doc.roundedRect(140, 75, 45, 12, 3, 3, 'F');
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text(clinicalReport.overallUrgency.level, 145, 83);
-      
-      // Grid de Métricas (estilo dashboard cards)
-      let cardY = 120;
-      const cardWidth = 85;
-      const cardHeight = 35;
-      const cardSpacing = 5;
-      
-      // Card 1: Frequência Cardíaca
-      doc.setFillColor(254, 242, 242); // Heart card background
-      doc.setDrawColor(220, 220, 220);
-      doc.rect(20, cardY, cardWidth, cardHeight, 'FD');
-      doc.setFontSize(10);
-      doc.setTextColor(220, 53, 69);
-      doc.text('♥ Frequência Cardíaca', 25, cardY + 8);
-      doc.setFontSize(18);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${snapshotVitalSigns?.heartRate || 72} bpm`, 25, cardY + 20);
-      
-      // Progress bar simulada
-      doc.setFillColor(220, 220, 220);
-      doc.rect(25, cardY + 25, 50, 3, 'F');
-      const heartProgress = Math.min(((snapshotVitalSigns?.heartRate || 72) / 120) * 50, 50);
-      doc.setFillColor(220, 53, 69);
-      doc.rect(25, cardY + 25, heartProgress, 3, 'F');
-      
-      // Card 2: Pressão Arterial
-      doc.setFillColor(255, 247, 237); // Warning background
-      doc.rect(20 + cardWidth + cardSpacing, cardY, cardWidth, cardHeight, 'FD');
-      doc.setFontSize(10);
-      doc.setTextColor(245, 158, 11);
-      doc.text('♥ Pressão Arterial', 25 + cardWidth + cardSpacing, cardY + 8);
-      doc.setFontSize(18);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${snapshotVitalSigns?.bloodPressure?.formatted || '120/80'}`, 25 + cardWidth + cardSpacing, cardY + 20);
-      
-      // Card 3: Temperatura
-      cardY += cardHeight + 10;
-      doc.setFillColor(240, 253, 244); // Success background
-      doc.rect(20, cardY, cardWidth, cardHeight, 'FD');
-      doc.setFontSize(10);
-      doc.setTextColor(34, 197, 94);
-      doc.text('🌡️ Temperatura', 25, cardY + 8);
-      doc.setFontSize(18);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${snapshotVitalSigns?.temperature || 36.5}°C`, 25, cardY + 20);
-      
-      // Card 4: Saturação
-      doc.setFillColor(240, 249, 255); // Primary background
-      doc.rect(20 + cardWidth + cardSpacing, cardY, cardWidth, cardHeight, 'FD');
-      doc.setFontSize(10);
-      doc.setTextColor(41, 128, 185);
-      doc.text('📊 Saturação O2', 25 + cardWidth + cardSpacing, cardY + 8);
-      doc.setFontSize(18);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`${snapshotVitalSigns?.oxygenSaturation || 98}%`, 25 + cardWidth + cardSpacing, cardY + 20);
-      
-      // Seção Sintomas (estilo card)
-      cardY += cardHeight + 15;
-      doc.setFillColor(248, 250, 252);
-      doc.rect(20, cardY, 170, 25, 'FD');
+      // Urgência
+      doc.setFontSize(14);
+      doc.text('NÍVEL DE URGÊNCIA:', 20, 65);
       doc.setFontSize(12);
-      doc.setTextColor(41, 128, 185);
-      doc.text('Sintomas Identificados', 25, cardY + 8);
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      let symptomY = cardY + 15;
-      clinicalReport.consolidatedSymptoms?.slice(0, 2).forEach((symptom: string) => {
-        // Badge simulado para sintomas
-        doc.setFillColor(229, 231, 235);
-        const textWidth = doc.getTextWidth(symptom);
-        doc.roundedRect(25, symptomY - 3, textWidth + 6, 8, 2, 2, 'F');
-        doc.setTextColor(75, 85, 99);
-        doc.text(symptom, 28, symptomY + 1);
-        symptomY += 10;
+      doc.text(`${clinicalReport.overallUrgency.level} - ${clinicalReport.overallUrgency.action}`, 20, 75);
+      
+      // Sintomas
+      doc.setFontSize(14);
+      doc.text('SINTOMAS IDENTIFICADOS:', 20, 95);
+      doc.setFontSize(10);
+      let yPos = 105;
+      clinicalReport.consolidatedSymptoms?.forEach((symptom: string) => {
+        doc.text(`• ${symptom}`, 25, yPos);
+        yPos += 10;
       });
       
-      // Seção Recomendações (estilo card)
-      cardY += 35;
-      doc.setFillColor(240, 253, 244);
-      doc.rect(20, cardY, 170, 30, 'FD');
-      doc.setFontSize(12);
-      doc.setTextColor(34, 197, 94);
-      doc.text('Recomendações', 25, cardY + 8);
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      let recY = cardY + 15;
-      clinicalReport.recommendations?.slice(0, 3).forEach((rec: string) => {
-        doc.text(`✓ ${rec}`, 25, recY);
-        recY += 7;
+      // Recomendações
+      yPos += 10;
+      doc.setFontSize(14);
+      doc.text('RECOMENDAÇÕES:', 20, yPos);
+      yPos += 10;
+      doc.setFontSize(10);
+      clinicalReport.recommendations?.forEach((rec: string) => {
+        doc.text(`• ${rec}`, 25, yPos);
+        yPos += 10;
       });
       
-      // Footer com dados do paciente
-      const footerY = 270;
-      doc.setFillColor(248, 250, 252);
-      doc.rect(15, footerY, 180, 25, 'F');
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Paciente: ${clinicalReport.patientName}`, 20, footerY + 8);
-      doc.text(`ID: ${clinicalReport.patientId}`, 20, footerY + 16);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 120, footerY + 8);
-      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 120, footerY + 16);
+      // Dados técnicos
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 20, yPos);
+      doc.text(`Qualidade dos dados: ${clinicalReport.dataQuality}`, 20, yPos + 10);
       
       // Salvar PDF
-      doc.save(`relatorio-triagem-${clinicalReport.patientName.replace(/\s+/g, '-')}-${clinicalReport.patientId}.pdf`);
-      
+      doc.save(`relatorio-triagem-${clinicalReport.patientId}.pdf`);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       // Fallback para JSON
@@ -363,43 +228,6 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       link.download = `relatorio-clinico-${clinicalReport?.patientId}.json`;
       link.click();
       URL.revokeObjectURL(url);
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!onComplete) {
-      onClose();
-      return;
-    }
-
-    setIsCompleting(true);
-
-    // Chamar onComplete passando os dados da análise
-    const completionData = {
-      type: 'clinical-analysis',
-      report: clinicalReport,
-      timestamp: new Date().toISOString(),
-      completed: true
-    };
-
-    try {
-      await onComplete(completionData);
-      toast({
-        title: "Análise Clínica Finalizada",
-        description: "Triagem médica concluída com sucesso. Todas as etapas foram finalizadas.",
-      });
-      onClose();
-    } catch (error) {
-      console.error('Erro ao finalizar análise:', error);
-      toast({
-        title: "Erro ao finalizar",
-        description: "Houve um problema ao finalizar a análise. Tente novamente.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsCompleting(false);
     }
   };
 
@@ -594,134 +422,14 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             </Card>
 
             <div className="flex gap-2">
-              <Button 
-                onClick={previewReport} 
-                variant="outline" 
-                className="flex-1"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Visualizar Relatório
+              <Button onClick={generatePDFReport} variant="outline" className="flex-1">
+                <Download className="h-4 w-4 mr-2" />
+                Baixar Relatório PDF
               </Button>
-              <Button 
-                onClick={handleComplete} 
-                className="flex-1"
-                disabled={isCompleting}
-              >
-                {isCompleting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Finalizando...
-                  </>
-                ) : (
-                  <>
-                    <ArrowRight className="h-4 w-4 mr-2" />
-                    Finalizar e Concluir
-                  </>
-                )}
+              <Button onClick={onClose} className="flex-1">
+                Finalizar
               </Button>
             </div>
-
-            {/* Modal de Preview do Relatório */}
-            <Dialog open={showReportPreview} onOpenChange={setShowReportPreview}>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Preview do Relatório Médico
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                  {/* Preview do Conteúdo do Relatório */}
-                  <div className="border rounded-lg p-4 bg-muted/30">
-                    <div className="text-center mb-4">
-                      <h2 className="text-xl font-bold text-primary">AURYA</h2>
-                      <p className="text-sm text-muted-foreground">Triagem Médica Inteligente com IA</p>
-                    </div>
-                    
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <h3 className="font-semibold">Paciente:</h3>
-                        <p>{clinicalReport?.patientName}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold">Sinais Vitais:</h3>
-                        <p>FC: {snapshotVitalSigns?.heartRate || 72} BPM | PA: {snapshotVitalSigns?.bloodPressure?.formatted || '120/80'} mmHg</p>
-                        <p>Temp: {snapshotVitalSigns?.temperature || 36.5}°C | SpO2: {snapshotVitalSigns?.oxygenSaturation || 98}%</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold">Urgência:</h3>
-                        <p>{clinicalReport?.overallUrgency?.level} - {clinicalReport?.overallUrgency?.action}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold">Sintomas:</h3>
-                        <p>{clinicalReport?.consolidatedSymptoms?.join(', ') || 'Nenhum sintoma identificado'}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold">Recomendações:</h3>
-                        <ul className="list-disc list-inside">
-                          {clinicalReport?.recommendations?.map((rec: string, index: number) => (
-                            <li key={index}>{rec}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ações do Preview */}
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={downloadPDFReport} 
-                      variant="default" 
-                      className="flex-1"
-                      disabled={isGeneratingReport}
-                    >
-                      {isGeneratingReport ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                          Gerando...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4 mr-2" />
-                          Baixar PDF
-                        </>
-                      )}
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({
-                            title: 'Relatório Médico Aurya',
-                            text: `Relatório de triagem médica de ${clinicalReport?.patientName}`,
-                            url: window.location.href
-                          });
-                        }
-                      }}
-                      variant="outline" 
-                      className="flex-1"
-                    >
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Compartilhar
-                    </Button>
-                    
-                    <Button 
-                      onClick={() => window.print()}
-                      variant="outline" 
-                      className="flex-1"
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Imprimir
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         )}
       </DialogContent>

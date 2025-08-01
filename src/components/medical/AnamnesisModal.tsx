@@ -3,21 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Brain, ArrowRight, ArrowLeft, MessageCircle } from "lucide-react";
-import AIConversationModal from "./AIConversationModal";
+import { Brain, ArrowRight, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-interface PatientData {
-  fullName: string;
-  birthDate: string;
-  age?: number;
-}
 
 interface AnamnesisModalProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: (analysis: any) => void;
-  patientData?: PatientData | null;
 }
 
 interface Question {
@@ -28,12 +20,11 @@ interface Question {
   category: string;
 }
 
-const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisModalProps) => {
+const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [showAIConversation, setShowAIConversation] = useState(false);
 
   const questions: Question[] = [
     {
@@ -360,20 +351,9 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
                 </ul>
               </div>
               
-              <div className="space-y-2">
-                <Button 
-                  onClick={() => setShowAIConversation(true)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Conversar com IA (Opcional)
-                </Button>
-                
-                <Button onClick={handleComplete} className="w-full">
-                  Concluir Anamnese
-                </Button>
-              </div>
+              <Button onClick={handleComplete} className="w-full">
+                Concluir Anamnese
+              </Button>
             </div>
           )}
 
@@ -399,25 +379,6 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete, patientData }: AnamnesisM
           )}
         </div>
       </DialogContent>
-      
-      {/* AI Conversation Modal */}
-      <AIConversationModal
-        isOpen={showAIConversation}
-        onClose={() => setShowAIConversation(false)}
-        onComplete={(conversationData) => {
-          // Integrar dados da conversa com resultados estruturados
-          const enhancedResult = {
-            ...analysisResult,
-            conversationalData: conversationData,
-            combinedUrgency: analysisResult?.urgencyLevel || 'baixa',
-            confidenceScore: analysisResult?.urgencyScore || 0
-          };
-          setAnalysisResult(enhancedResult);
-          setShowAIConversation(false);
-        }}
-        structuredAnswers={answers}
-        patientName={patientData?.fullName}
-      />
     </Dialog>
   );
 };
