@@ -6,7 +6,7 @@ interface VoiceRecordingHook {
   audioData: Blob | null;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
-  analyzeVoice: (apiKey: string) => Promise<any>;
+  analyzeVoice: () => Promise<any>;
   error: string | null;
 }
 
@@ -69,7 +69,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     }
   }, [isRecording]);
 
-  const analyzeVoice = useCallback(async (apiKey: string) => {
+  const analyzeVoice = useCallback(async () => {
     if (!audioData) {
       throw new Error('Nenhum áudio disponível para análise');
     }
@@ -78,36 +78,33 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     setError(null);
 
     try {
-      // Cria o formData com o áudio e o modelo
-      const formData = new FormData();
-      formData.append("file", audioData, "audio.webm");
-      formData.append("model", "whisper-1");
-      formData.append("language", "pt");
-
-      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: formData,
+      // Converter audioData (Blob) para base64
+      const reader = new FileReader();
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(audioData);
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro na transcrição: ${response.status} - ${errorText}`);
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const { data, error } = await supabase.functions.invoke('voice-analysis-whisper', {
+        body: {
+          audioData: base64Audio
+        }
+      });
+
+      if (error) {
+        throw new Error(`Erro na edge function: ${error.message}`);
       }
 
-      const data = await response.json();
-      console.log("Transcrição:", data.text);
+      if (!data.success) {
+        throw new Error(data.error || 'Erro na análise de voz');
+      }
+
+      console.log("Análise concluída:", data.analysis);
       
-      return {
-        success: true,
-        analysis: {
-          transcription: data.text,
-          emotionalTone: 'neutral',
-          confidence: 0.8
-        }
-      };
+      return data;
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido na análise';

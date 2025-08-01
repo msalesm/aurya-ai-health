@@ -17,9 +17,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   const [recordingTime, setRecordingTime] = useState(0);
   const [maxRecordingTime] = useState(60); // 60 segundos máximo
   const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [apiKey, setApiKey] = useState<string>(() => 
-    localStorage.getItem('openai_api_key') || ''
-  );
   
   const {
     isRecording,
@@ -58,16 +55,11 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   };
 
   const handleAnalyze = async () => {
-    if (audioData && apiKey) {
-      // Salvar a chave no localStorage para próximas sessões
-      localStorage.setItem('openai_api_key', apiKey);
-      
-      try {
-        const result = await analyzeVoice(apiKey);
-        setAnalysisResult(result);
-      } catch (err) {
-        console.error('Erro na análise:', err);
-      }
+    try {
+      const result = await analyzeVoice();
+      setAnalysisResult(result);
+    } catch (err) {
+      console.error('Erro na análise:', err);
     }
   };
 
@@ -95,21 +87,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Campo da API Key */}
-          <div className="space-y-2">
-            <Label htmlFor="api-key">Chave da API OpenAI</Label>
-            <Input
-              id="api-key"
-              type="password"
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Sua chave será salva localmente apenas neste navegador
-            </p>
-          </div>
-
           {/* Status e Timer */}
           <div className="text-center space-y-4">
             <div className={`
@@ -155,7 +132,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
               <Button 
                 onClick={handleAnalyze} 
                 size="lg"
-                disabled={!apiKey.trim()}
               >
                 Analisar Voz
               </Button>

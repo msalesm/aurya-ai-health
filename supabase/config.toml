@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.voice-analysis]
 verify_jwt = false
 
+[functions.voice-analysis-whisper]
+verify_jwt = false
+
 [functions.google-health-data]
 verify_jwt = false
 
