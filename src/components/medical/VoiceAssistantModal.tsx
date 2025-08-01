@@ -31,7 +31,9 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
+  const [assistantTranscript, setAssistantTranscript] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<string>('Desconectado');
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const chatRef = useRef<RealtimeVoiceChat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,45 +54,48 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         setConnectionStatus('Configurando sessão...');
         break;
       case 'session.updated':
-        setConnectionStatus('Conectado - Iniciando conversa...');
+        setConnectionStatus('Conectado - Pronto para conversar');
         break;
       case 'input_audio_buffer.speech_started':
         setIsListening(true);
-        setConnectionStatus('Ouvindo...');
+        setConnectionStatus('🎤 Ouvindo você falar...');
+        setIsTranscribing(true);
         break;
       case 'input_audio_buffer.speech_stopped':
         setIsListening(false);
-        setConnectionStatus('Processando...');
+        setIsTranscribing(false);
+        setConnectionStatus('🤔 Processando sua fala...');
         break;
       case 'response.audio.delta':
-        setConnectionStatus('Assistente falando...');
+        setConnectionStatus('🗣️ Assistente respondendo...');
+        setAssistantTranscript(''); // Clear when starting new response
         break;
       case 'response.audio.done':
-        setConnectionStatus('Aguardando...');
-        break;
-      case 'transcript':
-        setCurrentTranscript(event.content);
-        break;
-      case 'transcript_complete':
-        if (currentTranscript.trim()) {
-          addMessage('assistant', currentTranscript);
-          setCurrentTranscript('');
-        }
+        setConnectionStatus('✅ Aguardando sua próxima pergunta...');
         break;
       case 'response.audio_transcript.delta':
+        // Real-time transcription of assistant speech
         if (event.delta) {
-          setCurrentTranscript(prev => prev + event.delta);
+          setAssistantTranscript(prev => prev + event.delta);
         }
         break;
-      case 'response.audio_transcript.done':
-        if (currentTranscript.trim()) {
-          addMessage('assistant', currentTranscript.trim());
-          setCurrentTranscript('');
+      case 'transcript_complete':
+        // Final assistant transcript from our utility
+        if (event.content && event.content.trim()) {
+          addMessage('assistant', event.content.trim());
+          setAssistantTranscript('');
+        }
+        break;
+      case 'user_transcript':
+        // User speech transcription from our utility
+        if (event.content && event.content.trim()) {
+          addMessage('user', event.content.trim());
         }
         break;
       case 'conversation.item.input_audio_transcription.completed':
-        if (event.transcript) {
-          addMessage('user', event.transcript);
+        // Direct OpenAI user transcription
+        if (event.transcript && event.transcript.trim()) {
+          addMessage('user', event.transcript.trim());
         }
         break;
       case 'response.done':
@@ -106,6 +111,10 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
           };
           onAnalysisComplete(analysisData);
         }
+        break;
+      case 'error':
+        setConnectionStatus('❌ Erro na conexão');
+        console.error('Voice chat error:', event);
         break;
     }
   };
@@ -125,7 +134,11 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       setIsConnecting(true);
       setConnectionStatus('Conectando...');
       
-      chatRef.current = new RealtimeVoiceChat(handleMessage, setIsSpeaking);
+      chatRef.current = new RealtimeVoiceChat(
+        handleMessage, 
+        setIsSpeaking, 
+        setAssistantTranscript
+      );
       await chatRef.current.connect();
       setIsConnected(true);
       setConnectionStatus('Conectado');
@@ -171,6 +184,23 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   };
 
+  const testMicrophone = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      toast({
+        title: "Microfone OK",
+        description: "Microfone está funcionando corretamente",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no Microfone",
+        description: "Verifique as permissões do microfone",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleClose = () => {
     if (isConnected) {
       endConversation();
@@ -213,25 +243,35 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex gap-2 justify-center">
+          <div className="flex gap-2 justify-center flex-wrap">
             {!isConnected ? (
-              <Button 
-                onClick={startConversation}
-                disabled={isConnecting}
-                className="flex items-center gap-2"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Conectando...
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-4 w-4" />
-                    Iniciar Conversa
-                  </>
-                )}
-              </Button>
+              <>
+                <Button 
+                  onClick={startConversation}
+                  disabled={isConnecting}
+                  className="flex items-center gap-2"
+                >
+                  {isConnecting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Conectando...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="h-4 w-4" />
+                      Iniciar Conversa
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={testMicrophone}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  Testar Microfone
+                </Button>
+              </>
             ) : (
               <div className="flex gap-2">
                 <Button 
@@ -279,12 +319,32 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                   </div>
                 ))}
                 
-                {/* Transcrição em tempo real */}
-                {currentTranscript && (
+                {/* Transcrição do assistente em tempo real */}
+                {assistantTranscript && (
                   <div className="flex justify-start">
-                    <div className="max-w-[70%] p-3 rounded-lg bg-muted border-2 border-primary/20">
-                      <p className="text-sm">{currentTranscript}</p>
-                      <span className="text-xs opacity-70">Digitando...</span>
+                    <div className="max-w-[70%] p-3 rounded-lg bg-green-50 border-2 border-green-200">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-xs text-green-700 font-medium">Assistente falando...</span>
+                      </div>
+                      <p className="text-sm text-green-900">{assistantTranscript}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Indicador de transcrição do usuário */}
+                {isTranscribing && (
+                  <div className="flex justify-end">
+                    <div className="max-w-[70%] p-3 rounded-lg bg-blue-50 border-2 border-blue-200">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                        <span className="text-xs text-blue-700 font-medium">Transcrevendo sua fala...</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </div>
                 )}

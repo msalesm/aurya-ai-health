@@ -179,38 +179,30 @@ export class RealtimeVoiceChat {
   private audioQueue: AudioQueue | null = null;
   private recorder: AudioRecorder | null = null;
   private sessionEstablished = false;
+  private currentTranscript = '';
 
   constructor(
     private onMessage: (message: any) => void,
-    private onSpeakingChange: (speaking: boolean) => void
+    private onSpeakingChange: (speaking: boolean) => void,
+    private onTranscriptionChange?: (transcript: string) => void
   ) {}
 
   async connect() {
     try {
-      console.log('Connecting to realtime voice chat...');
+      console.log('Connecting to realtime voice chat via WebSocket proxy...');
       
-      // Get ephemeral token from our Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('realtime-voice-chat');
-      
-      if (error || !data?.client_secret?.value) {
-        throw new Error(error?.message || 'Failed to get ephemeral token');
-      }
-
-      const ephemeralToken = data.client_secret.value;
-      console.log('Got ephemeral token, connecting to OpenAI...');
-
       // Initialize audio context and queue
       this.audioContext = new AudioContext({ sampleRate: 24000 });
       this.audioQueue = new AudioQueue(this.audioContext);
 
-      // Connect to OpenAI Realtime API via WebSocket
-      this.ws = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17', [
-        'realtime',
-        `authorization.bearer.${ephemeralToken}`
-      ]);
+      // Connect directly to our Supabase WebSocket proxy
+      const wsUrl = `wss://skwpuolpkgntqdmgzwlr.functions.supabase.co/realtime-voice-chat`;
+      console.log('Connecting to WebSocket proxy:', wsUrl);
+      
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected to OpenAI Realtime API');
+        console.log('WebSocket connected to Supabase proxy');
       };
 
       this.ws.onmessage = async (event) => {
@@ -224,8 +216,8 @@ export class RealtimeVoiceChat {
         console.error('WebSocket error:', error);
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      this.ws.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
         this.cleanup();
       };
 
@@ -240,20 +232,13 @@ export class RealtimeVoiceChat {
 
     switch (message.type) {
       case 'session.created':
-        console.log('Session created, sending configuration...');
-        await this.configureSession();
+        console.log('Session created - proxy will handle configuration');
         break;
 
       case 'session.updated':
         console.log('[RealtimeVoiceChat] Session updated, starting audio recording...');
         await this.startAudioRecording();
         this.sessionEstablished = true;
-        
-        // Send a text message to force initial response
-        setTimeout(() => {
-          console.log('[RealtimeVoiceChat] Sending initial message to start conversation...');
-          this.sendTextMessage('Olá, inicie a consulta médica fazendo sua primeira pergunta sobre como estou me sentindo.');
-        }, 2000);
         break;
 
       case 'response.audio.delta':
@@ -273,6 +258,41 @@ export class RealtimeVoiceChat {
         this.onSpeakingChange(false);
         break;
 
+      case 'response.audio_transcript.delta':
+        // Real-time transcription of assistant speech
+        if (message.delta) {
+          this.currentTranscript += message.delta;
+          this.onTranscriptionChange?.(this.currentTranscript);
+          console.log('Assistant transcript delta:', message.delta);
+        }
+        break;
+
+      case 'response.audio_transcript.done':
+        // Final transcription of assistant speech
+        if (this.currentTranscript.trim()) {
+          console.log('Assistant transcript complete:', this.currentTranscript);
+          // Send complete transcript to UI
+          this.onMessage({
+            type: 'transcript_complete',
+            content: this.currentTranscript.trim(),
+            role: 'assistant'
+          });
+          this.currentTranscript = '';
+        }
+        break;
+
+      case 'conversation.item.input_audio_transcription.completed':
+        // User speech transcription completed
+        if (message.transcript) {
+          console.log('User speech transcribed:', message.transcript);
+          this.onMessage({
+            type: 'user_transcript',
+            content: message.transcript,
+            role: 'user'
+          });
+        }
+        break;
+
       case 'input_audio_buffer.speech_started':
         console.log('User started speaking');
         break;
@@ -284,49 +304,14 @@ export class RealtimeVoiceChat {
       case 'error':
         console.error('OpenAI API error:', message);
         break;
+
+      default:
+        // Log all other events for debugging
+        console.log('Unhandled event type:', message.type);
+        break;
     }
   }
 
-  private async configureSession() {
-    if (!this.ws) return;
-
-    const sessionConfig = {
-      type: 'session.update',
-      session: {
-        modalities: ['text', 'audio'],
-        instructions: `Você é um assistente médico especializado em triagem e análise de saúde. 
-
-Sua função é:
-- Iniciar IMEDIATAMENTE a conversa cumprimentando o paciente
-- Conduzir entrevistas médicas de forma empática e profissional
-- Fazer perguntas direcionadas sobre sintomas e histórico médico
-- Avaliar urgência médica baseada nas respostas
-- Fornecer orientações gerais (sem diagnósticos específicos)
-
-IMPORTANTE: Assim que receber qualquer mensagem, comece IMEDIATAMENTE falando e fazendo a primeira pergunta sobre como o paciente está se sentindo.
-
-Use linguagem acessível e empática em português brasileiro.`,
-        voice: 'alloy',
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        input_audio_transcription: {
-          model: 'whisper-1'
-        },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.2,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
-          create_response: true
-        },
-        temperature: 0.8,
-        max_response_output_tokens: 'inf'
-      }
-    };
-
-    this.ws.send(JSON.stringify(sessionConfig));
-    console.log('Session configuration sent');
-  }
 
   private async startAudioRecording() {
     if (!this.ws) return;
