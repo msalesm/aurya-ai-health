@@ -245,13 +245,15 @@ export class RealtimeVoiceChat {
         break;
 
       case 'session.updated':
-        console.log('Session updated, starting audio recording and initial greeting...');
+        console.log('[RealtimeVoiceChat] Session updated, starting audio recording...');
         await this.startAudioRecording();
         this.sessionEstablished = true;
-        // Send initial greeting to start conversation
+        
+        // Send a text message to force initial response
         setTimeout(() => {
-          this.sendInitialGreeting();
-        }, 1000);
+          console.log('[RealtimeVoiceChat] Sending initial message to start conversation...');
+          this.sendTextMessage('Olá, inicie a consulta médica fazendo sua primeira pergunta sobre como estou me sentindo.');
+        }, 2000);
         break;
 
       case 'response.audio.delta':
@@ -295,19 +297,15 @@ export class RealtimeVoiceChat {
         instructions: `Você é um assistente médico especializado em triagem e análise de saúde. 
 
 Sua função é:
+- Iniciar IMEDIATAMENTE a conversa cumprimentando o paciente
 - Conduzir entrevistas médicas de forma empática e profissional
 - Fazer perguntas direcionadas sobre sintomas e histórico médico
 - Avaliar urgência médica baseada nas respostas
 - Fornecer orientações gerais (sem diagnósticos específicos)
-- Recomendar busca por atendimento médico quando necessário
 
-Diretrizes importantes:
-- Use linguagem acessível e empática
-- Seja objetivo mas cuidadoso
-- Sempre reforce que não substitui consulta médica presencial
-- Em casos de emergência, oriente imediatamente para serviços de urgência
+IMPORTANTE: Assim que receber qualquer mensagem, comece IMEDIATAMENTE falando e fazendo a primeira pergunta sobre como o paciente está se sentindo.
 
-Responda sempre em português brasileiro e mantenha um tom profissional e acolhedor.`,
+Use linguagem acessível e empática em português brasileiro.`,
         voice: 'alloy',
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
@@ -316,9 +314,9 @@ Responda sempre em português brasileiro e mantenha um tom profissional e acolhe
         },
         turn_detection: {
           type: 'server_vad',
-          threshold: 0.3,
+          threshold: 0.2,
           prefix_padding_ms: 300,
-          silence_duration_ms: 800,
+          silence_duration_ms: 600,
           create_response: true
         },
         temperature: 0.8,
@@ -352,20 +350,20 @@ Responda sempre em português brasileiro e mantenha um tom profissional e acolhe
     }
   }
 
-  private sendInitialGreeting() {
+  forceStartConversation() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.sessionEstablished) {
-      console.warn('Cannot send initial greeting - not ready');
+      console.warn('[RealtimeVoiceChat] Cannot force start - not ready');
       return;
     }
 
-    console.log('Sending initial greeting to start conversation...');
+    console.log('[RealtimeVoiceChat] Forcing conversation start...');
     
-    // Force the assistant to start speaking by creating a response
+    // Force the assistant to start speaking
     this.ws.send(JSON.stringify({
       type: 'response.create',
       response: {
         modalities: ['audio', 'text'],
-        instructions: 'Inicie imediatamente a conversa cumprimentando o paciente e faça a primeira pergunta sobre como ele está se sentindo. Fale de forma natural e empática.'
+        instructions: 'Cumprimente o paciente agora e pergunte como ele está se sentindo.'
       }
     }));
   }
