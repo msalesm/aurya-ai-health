@@ -22,6 +22,23 @@ serve(async (req) => {
   }
 
   try {
+    // Verificar se há conteúdo antes de tentar parse
+    const contentLength = req.headers.get('content-length');
+    const contentType = req.headers.get('content-type');
+    
+    console.log('Pre-parse validation:', {
+      contentLength,
+      contentType,
+      hasBody: !!req.body
+    });
+    
+    if (!contentType || !contentType.includes('multipart/form-data')) {
+      throw new Error(`Invalid content type: ${contentType}. Expected multipart/form-data`);
+    }
+    
+    if (!contentLength || contentLength === '0') {
+      throw new Error('Request body is empty (Content-Length: 0)');
+    }
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not configured');
@@ -278,11 +295,31 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Voice analysis function error:', error);
+    console.error('❌ Voice analysis error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    console.error('Request debug info:', {
+      method: req.method,
+      contentType: req.headers.get('content-type'),
+      contentLength: req.headers.get('content-length'),
+      userAgent: req.headers.get('user-agent'),
+      hasBody: !!req.body
+    });
+    
+    const errorMessage = error.message || 'Unknown error in voice analysis';
     
     return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false
+      success: false,
+      error: errorMessage,
+      debug: {
+        contentType: req.headers.get('content-type'),
+        contentLength: req.headers.get('content-length'),
+        userAgent: req.headers.get('user-agent'),
+        timestamp: new Date().toISOString()
+      }
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

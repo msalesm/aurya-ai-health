@@ -37,11 +37,11 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
   const startRecording = async () => {
     try {
-      console.log('Iniciando gravação com Opus...');
+      console.log('Iniciando gravação...');
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          sampleRate: 48000, // Optimized for voice analysis
+          sampleRate: 44100, // Padrão para compatibilidade
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -49,13 +49,47 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         } 
       });
       
-      // Use OpusMediaRecorder with optimized settings
-      const mediaRecorder = new OpusMediaRecorder(stream, {
-        mimeType: 'audio/ogg;codecs=opus'
-      }, {
-        OggOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/OggOpusEncoder.wasm',
-        WebMOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/WebMOpusEncoder.wasm'
-      });
+      // Detectar suporte para Opus e usar fallback se necessário
+      let mediaRecorder;
+      
+      // Tentar OpusMediaRecorder primeiro
+      if (typeof OpusMediaRecorder !== 'undefined') {
+        try {
+          console.log('Usando OpusMediaRecorder...');
+          mediaRecorder = new OpusMediaRecorder(stream, {
+            mimeType: 'audio/webm;codecs=opus'
+          }, {
+            OggOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/OggOpusEncoder.wasm',
+            WebMOpusEncoderWasmPath: 'https://cdn.jsdelivr.net/npm/opus-media-recorder@latest/WebMOpusEncoder.wasm'
+          });
+        } catch (opusError) {
+          console.warn('OpusMediaRecorder falhou, usando MediaRecorder nativo:', opusError);
+          mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'audio/webm;codecs=opus'
+          });
+        }
+      } else {
+        console.log('Usando MediaRecorder nativo...');
+        // Fallback para MediaRecorder nativo
+        const mimeTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/wav'
+        ];
+        
+        let selectedMimeType = '';
+        for (const mimeType of mimeTypes) {
+          if (MediaRecorder.isTypeSupported(mimeType)) {
+            selectedMimeType = mimeType;
+            break;
+          }
+        }
+        
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: selectedMimeType || undefined
+        });
+      }
       
       mediaRecorderRef.current = mediaRecorder;
 
@@ -70,8 +104,21 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
       mediaRecorder.onstop = () => {
         console.log('Gravação finalizada, criando blob...');
-        const blob = new Blob(chunks, { type: 'audio/ogg;codecs=opus' });
-        console.log('Blob criado:', blob.size, 'bytes');
+        const mimeType = mediaRecorder.mimeType || 'audio/webm;codecs=opus';
+        const blob = new Blob(chunks, { type: mimeType });
+        console.log('Blob criado:', {
+          size: blob.size,
+          type: blob.type,
+          chunks: chunks.length
+        });
+        
+        // Validação adicional do blob
+        if (blob.size === 0) {
+          console.error('Blob vazio criado!');
+          alert('Erro: Gravação resultou em arquivo vazio');
+          return;
+        }
+        
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -122,31 +169,56 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   };
 
   const analyzeVoice = async () => {
-    if (!audioBlob) return;
+    if (!audioBlob) {
+      console.error('Nenhum audioBlob disponível');
+      return;
+    }
+
+    // Validação adicional do audioBlob
+    if (audioBlob.size === 0) {
+      console.error('AudioBlob está vazio');
+      alert('Erro: Arquivo de áudio está vazio');
+      return;
+    }
 
     setIsAnalyzing(true);
     
     try {
-      console.log('Iniciando análise de voz...', {
-        blobSize: audioBlob.size,
-        blobType: audioBlob.type,
-        recordingTime
+      console.log('=== INICIANDO ANÁLISE DE VOZ ===');
+      console.log('AudioBlob:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+        recordingTime: recordingTime
       });
       
-      // Criar FormData com boundary correto
+      // Criar FormData com boundary correto (sem Content-Type manual)
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.ogg');
+      
+      // Usar nome de arquivo específico baseado no tipo
+      const fileName = audioBlob.type.includes('webm') ? 'recording.webm' : 'recording.ogg';
+      formData.append('audio', audioBlob, fileName);
       formData.append('user_id', 'anonymous-user');
       formData.append('session_duration', recordingTime.toString());
 
-      console.log('FormData criado, enviando para edge function...');
+      // Debug do FormData
+      console.log('FormData entries:');
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}:`, { name: value.name, size: value.size, type: value.type });
+        } else {
+          console.log(`${key}:`, value);
+        }
+      }
 
-      // Enviar diretamente para a edge function usando fetch com FormData
+      console.log('Enviando para edge function...');
+
+      // Enviar sem Content-Type manual (deixar o browser definir com boundary)
       const response = await fetch('https://skwpuolpkgntqdmgzwlr.supabase.co/functions/v1/voice-analysis', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
           'apikey': `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
+          // Não incluir Content-Type - deixar o browser definir automaticamente
         },
         body: formData
       });
