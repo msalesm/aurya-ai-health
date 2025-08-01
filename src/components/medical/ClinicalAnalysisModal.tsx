@@ -35,6 +35,7 @@ interface ClinicalAnalysisModalProps {
   voiceAnalysis?: any;
   facialAnalysis?: any;
   anamnesisResults?: any;
+  voiceAssistantResults?: any;
   patientData?: PatientData | null;
 }
 
@@ -45,6 +46,7 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   voiceAnalysis,
   facialAnalysis,
   anamnesisResults,
+  voiceAssistantResults,
   patientData
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

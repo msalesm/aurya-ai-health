@@ -17,8 +17,9 @@ import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import IntelligentAnamnesisModal from "./IntelligentAnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
+import VoiceAssistantModal from "./VoiceAssistantModal";
 
-type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "anamnesis" | "analysis";
+type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "voice-assistant" | "anamnesis" | "analysis";
 
 interface PatientData {
   fullName: string;
@@ -37,6 +38,7 @@ const TriageFlow = () => {
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [showAnamnesisModal, setShowAnamnesisModal] = useState(false);
   const [showClinicalModal, setShowClinicalModal] = useState(false);
+  const [showVoiceAssistantModal, setShowVoiceAssistantModal] = useState(false);
   
   // Analysis results storage
   const [stepResults, setStepResults] = useState<any>({});
@@ -64,10 +66,17 @@ const TriageFlow = () => {
       status: completedSteps.has("voice-analysis") ? "completed" : (currentStep === "voice-analysis" ? "active" : "pending")
     },
     {
-      id: "anamnesis",
-      title: "Anamnese Inteligente",
-      description: "Perguntas estruturadas + conversa com IA (opcional)",
+      id: "voice-assistant",
+      title: "Assistente Médico por Voz",
+      description: "Entrevista médica inteligente com IA conversacional",
       icon: <Brain className="h-6 w-6" />,
+      status: completedSteps.has("voice-assistant") ? "completed" : (currentStep === "voice-assistant" ? "active" : "pending")
+    },
+    {
+      id: "anamnesis",
+      title: "Anamnese Estruturada",
+      description: "Perguntas direcionadas e análise tradicional",
+      icon: <ClipboardList className="h-6 w-6" />,
       status: completedSteps.has("anamnesis") ? "completed" : (currentStep === "anamnesis" ? "active" : "pending")
     },
     {
@@ -93,6 +102,9 @@ const TriageFlow = () => {
       case "voice-analysis":
         setShowVoiceModal(true);
         break;
+      case "voice-assistant":
+        setShowVoiceAssistantModal(true);
+        break;
       case "anamnesis":
         setShowAnamnesisModal(true);
         break;
@@ -112,13 +124,14 @@ const TriageFlow = () => {
     setCompletedSteps(prev => new Set(prev).add(stepId));
     
     // Store results with patient data context
-    setStepResults(prev => ({
-      ...prev,
-      [stepId === "voice-analysis" ? "voice" : 
-       stepId === "facial-analysis" ? "facial" : 
-       stepId === "anamnesis" ? "anamnesis" : stepId]: result,
-      patientData // Include patient data in all results
-    }));
+     setStepResults(prev => ({
+       ...prev,
+       [stepId === "voice-analysis" ? "voice" : 
+        stepId === "facial-analysis" ? "facial" : 
+        stepId === "voice-assistant" ? "voiceAssistant" :
+        stepId === "anamnesis" ? "anamnesis" : stepId]: result,
+       patientData // Include patient data in all results
+     }));
     
     // Progress to next step
     const stepIndex = steps.findIndex(s => s.id === stepId);
@@ -206,7 +219,7 @@ const TriageFlow = () => {
                       </Button>
                     )}
                     
-                    {step.id === "analysis" && completedSteps.has("anamnesis") && (
+                    {step.id === "analysis" && (completedSteps.has("anamnesis") || completedSteps.has("voice-assistant")) && (
                       <Button 
                         size="sm"
                         onClick={() => handleStartStep(step.id as TriageStep)}
@@ -269,7 +282,17 @@ const TriageFlow = () => {
             voiceAnalysis={stepResults.voice}
             facialAnalysis={stepResults.facial}
             anamnesisResults={stepResults.anamnesis}
+            voiceAssistantResults={stepResults.voiceAssistant}
             patientData={patientData}
+          />
+
+          <VoiceAssistantModal
+            isOpen={showVoiceAssistantModal}
+            onClose={() => setShowVoiceAssistantModal(false)}
+            onAnalysisComplete={(analysis) => {
+              handleStepComplete('voice-assistant', analysis);
+              setShowVoiceAssistantModal(false);
+            }}
           />
     </div>
   );
