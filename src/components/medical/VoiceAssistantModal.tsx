@@ -103,12 +103,9 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
       await chatRef.current.connect();
       setIsConnected(true);
       
-      // Adicionar mensagem de boas-vindas
-      addMessage('assistant', 'Olá! Sou seu assistente médico virtual. Vou fazer algumas perguntas sobre seu estado de saúde. Pode falar naturalmente comigo.');
-      
       toast({
         title: "Assistente Conectado",
-        description: "Você pode começar a falar com o assistente médico",
+        description: "O assistente médico está começando a conversa...",
       });
     } catch (error) {
       console.error('Error starting conversation:', error);

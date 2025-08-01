@@ -245,9 +245,13 @@ export class RealtimeVoiceChat {
         break;
 
       case 'session.updated':
-        console.log('Session updated, starting audio recording...');
+        console.log('Session updated, starting audio recording and initial greeting...');
         await this.startAudioRecording();
         this.sessionEstablished = true;
+        // Send initial greeting to start conversation
+        setTimeout(() => {
+          this.sendInitialGreeting();
+        }, 1000);
         break;
 
       case 'response.audio.delta':
@@ -312,9 +316,10 @@ Responda sempre em português brasileiro e mantenha um tom profissional e acolhe
         },
         turn_detection: {
           type: 'server_vad',
-          threshold: 0.5,
+          threshold: 0.3,
           prefix_padding_ms: 300,
-          silence_duration_ms: 1000
+          silence_duration_ms: 800,
+          create_response: true
         },
         temperature: 0.8,
         max_response_output_tokens: 'inf'
@@ -345,6 +350,24 @@ Responda sempre em português brasileiro e mantenha um tom profissional e acolhe
       console.error('Error starting audio recording:', error);
       throw error;
     }
+  }
+
+  private sendInitialGreeting() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.sessionEstablished) {
+      console.warn('Cannot send initial greeting - not ready');
+      return;
+    }
+
+    console.log('Sending initial greeting to start conversation...');
+    
+    // Force the assistant to start speaking by creating a response
+    this.ws.send(JSON.stringify({
+      type: 'response.create',
+      response: {
+        modalities: ['audio', 'text'],
+        instructions: 'Inicie imediatamente a conversa cumprimentando o paciente e faça a primeira pergunta sobre como ele está se sentindo. Fale de forma natural e empática.'
+      }
+    }));
   }
 
   sendTextMessage(text: string) {
