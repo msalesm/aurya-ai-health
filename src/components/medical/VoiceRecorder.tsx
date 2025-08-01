@@ -141,21 +141,29 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
       console.log('FormData criado, enviando para edge function...');
 
-      // Enviar diretamente para a edge function com headers corretos
-      const response = await supabase.functions.invoke('voice-analysis', {
+      // Enviar diretamente para a edge function usando fetch com FormData
+      const response = await fetch('https://skwpuolpkgntqdmgzwlr.supabase.co/functions/v1/voice-analysis', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
+          'apikey': `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3B1b2xwa2dudHFkbWd6d2xyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTk1MTMsImV4cCI6MjA2MzkzNTUxM30.yHZ82crhtfRQh10aRS6KPkUcPFDjxIMEXu0k0d2pIHQ`,
+        },
         body: formData
       });
 
-      console.log('Resposta da edge function:', response);
+      console.log('Resposta da edge function:', response.status, response.statusText);
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Edge function error:', errorText);
+        throw new Error(`Edge function error: ${response.status} - ${errorText}`);
       }
 
-      console.log('Análise de voz bem-sucedida:', response.data);
+      const data = await response.json();
+      console.log('Análise de voz bem-sucedida:', data);
       
       if (onAnalysisComplete) {
-        onAnalysisComplete(response.data);
+        onAnalysisComplete(data);
       }
 
     } catch (error) {
