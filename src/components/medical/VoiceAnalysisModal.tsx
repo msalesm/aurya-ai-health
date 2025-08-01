@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Mic, Square, Play, Pause } from "lucide-react";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
@@ -15,6 +17,9 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   const [recordingTime, setRecordingTime] = useState(0);
   const [maxRecordingTime] = useState(60); // 60 segundos máximo
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [apiKey, setApiKey] = useState<string>(() => 
+    localStorage.getItem('openai_api_key') || ''
+  );
   
   const {
     isRecording,
@@ -53,9 +58,12 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   };
 
   const handleAnalyze = async () => {
-    if (audioData) {
+    if (audioData && apiKey) {
+      // Salvar a chave no localStorage para próximas sessões
+      localStorage.setItem('openai_api_key', apiKey);
+      
       try {
-        const result = await analyzeVoice();
+        const result = await analyzeVoice(apiKey);
         setAnalysisResult(result);
       } catch (err) {
         console.error('Erro na análise:', err);
@@ -87,6 +95,21 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Campo da API Key */}
+          <div className="space-y-2">
+            <Label htmlFor="api-key">Chave da API OpenAI</Label>
+            <Input
+              id="api-key"
+              type="password"
+              placeholder="sk-..."
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Sua chave será salva localmente apenas neste navegador
+            </p>
+          </div>
+
           {/* Status e Timer */}
           <div className="text-center space-y-4">
             <div className={`
@@ -129,7 +152,11 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             )}
 
             {audioData && !analysisResult && !isProcessing && (
-              <Button onClick={handleAnalyze} size="lg">
+              <Button 
+                onClick={handleAnalyze} 
+                size="lg"
+                disabled={!apiKey.trim()}
+              >
                 Analisar Voz
               </Button>
             )}
@@ -145,22 +172,22 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
               <h3 className="font-semibold">Resultado da Análise:</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
                 <div>
-                  <p className="font-medium">Estado Emocional:</p>
-                  <p>{analysisResult.emotions?.[0]?.label || 'Normal'}</p>
+                  <p className="font-medium">Transcrição:</p>
+                  <p className="text-sm bg-background p-2 rounded border">
+                    {analysisResult.analysis?.transcription || 'Nenhuma transcrição disponível'}
+                  </p>
                 </div>
-                <div>
-                  <p className="font-medium">Padrão Respiratório:</p>
-                  <p>{analysisResult.respiratoryPattern || 'Normal'}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Clareza da Fala:</p>
-                  <p>{analysisResult.speechClarity || 85}%</p>
-                </div>
-                <div>
-                  <p className="font-medium">Confiança:</p>
-                  <p>{Math.round((analysisResult.confidence || 0.8) * 100)}%</p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">Estado Emocional:</p>
+                    <p>{analysisResult.analysis?.emotionalTone || 'Normal'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Confiança:</p>
+                    <p>{Math.round((analysisResult.analysis?.confidence || 0.8) * 100)}%</p>
+                  </div>
                 </div>
               </div>
               

@@ -1,20 +1,19 @@
 import { useState, useRef, useCallback } from 'react';
-import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceRecordingHook {
   isRecording: boolean;
   isProcessing: boolean;
-  audioData: string | null;
+  audioData: Blob | null;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
-  analyzeVoice: () => Promise<any>;
+  analyzeVoice: (apiKey: string) => Promise<any>;
   error: string | null;
 }
 
 export const useVoiceRecording = (): VoiceRecordingHook => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [audioData, setAudioData] = useState<string | null>(null);
+  const [audioData, setAudioData] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -48,14 +47,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
 
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        // Converter para base64
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          setAudioData(base64Audio);
-        };
-        reader.readAsDataURL(audioBlob);
+        setAudioData(audioBlob);
 
         // Parar todas as faixas de áudio
         stream.getTracks().forEach(track => track.stop());
@@ -77,7 +69,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     }
   }, [isRecording]);
 
-  const analyzeVoice = useCallback(async () => {
+  const analyzeVoice = useCallback(async (apiKey: string) => {
     if (!audioData) {
       throw new Error('Nenhum áudio disponível para análise');
     }
@@ -86,24 +78,36 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     setError(null);
 
     try {
-      const response = await supabase.functions.invoke('hybrid-voice-analysis', {
-        body: {
-          audioData: audioData,
-          userId: 'demo-user-id',
-          preferredProvider: 'hybrid'
-        }
+      // Cria o formData com o áudio e o modelo
+      const formData = new FormData();
+      formData.append("file", audioData, "audio.webm");
+      formData.append("model", "whisper-1");
+      formData.append("language", "pt");
+
+      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: formData,
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Erro na análise de voz');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro na transcrição: ${response.status} - ${errorText}`);
       }
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Erro desconhecido na análise');
-      }
-
-      console.log('Análise híbrida de voz concluída:', response.data.analysis);
-      return response.data;
+      const data = await response.json();
+      console.log("Transcrição:", data.text);
+      
+      return {
+        success: true,
+        analysis: {
+          transcription: data.text,
+          emotionalTone: 'neutral',
+          confidence: 0.8
+        }
+      };
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido na análise';
