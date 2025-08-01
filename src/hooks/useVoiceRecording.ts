@@ -90,7 +90,9 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
       
       const { data, error } = await supabase.functions.invoke('voice-analysis-whisper', {
         body: {
-          audioData: base64Audio
+          audioData: base64Audio,
+          userId: 'anonymous-user',
+          consultationId: Date.now().toString()
         }
       });
 

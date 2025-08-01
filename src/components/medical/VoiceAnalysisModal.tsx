@@ -148,22 +148,69 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
               <h3 className="font-semibold">Resultado da Análise:</h3>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <div>
                   <p className="font-medium">Transcrição:</p>
                   <p className="text-sm bg-background p-2 rounded border">
                     {analysisResult.analysis?.transcription || 'Nenhuma transcrição disponível'}
                   </p>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="font-medium">Estado Emocional:</p>
-                    <p>{analysisResult.analysis?.emotionalTone || 'Normal'}</p>
+                    <p className="capitalize">{analysisResult.analysis?.emotional_tone?.primary_emotion || 'Normal'}</p>
                   </div>
                   <div>
                     <p className="font-medium">Confiança:</p>
-                    <p>{Math.round((analysisResult.analysis?.confidence || 0.8) * 100)}%</p>
+                    <p>{Math.round((analysisResult.analysis?.emotional_tone?.confidence || 0.8) * 100)}%</p>
                   </div>
+                </div>
+
+                {analysisResult.analysis?.stress_indicators && (
+                  <div>
+                    <p className="font-medium">Indicadores de Estresse:</p>
+                    <div className="text-sm bg-background p-2 rounded border">
+                      <p>Nível: {Math.round(analysisResult.analysis.stress_indicators.stress_level)}/10</p>
+                      <p>Taxa de fala: {analysisResult.analysis.stress_indicators.speech_rate}</p>
+                      {analysisResult.analysis.stress_indicators.voice_tremor && (
+                        <p className="text-amber-600">⚠️ Tremor vocal detectado</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult.analysis?.respiratory_analysis && (
+                  <div>
+                    <p className="font-medium">Análise Respiratória:</p>
+                    <div className="text-sm bg-background p-2 rounded border">
+                      <p>Taxa respiratória: {analysisResult.analysis.respiratory_analysis.breathing_rate} rpm</p>
+                      {analysisResult.analysis.respiratory_analysis.irregularity_detected && (
+                        <p className="text-orange-600">⚠️ Irregularidade detectada</p>
+                      )}
+                      {analysisResult.analysis.respiratory_analysis.shallow_breathing && (
+                        <p className="text-orange-600">⚠️ Respiração superficial</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult.health_indicators && analysisResult.health_indicators.length > 0 && (
+                  <div>
+                    <p className="font-medium">Indicadores de Saúde:</p>
+                    <div className="space-y-2">
+                      {analysisResult.health_indicators.map((indicator: any, index: number) => (
+                        <div key={index} className="text-sm bg-background p-2 rounded border">
+                          <p className="font-medium text-amber-600">{indicator.concern}</p>
+                          <p className="text-muted-foreground">{indicator.recommendation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  Duração da sessão: {analysisResult.analysis?.session_duration || 0}s
                 </div>
               </div>
               
