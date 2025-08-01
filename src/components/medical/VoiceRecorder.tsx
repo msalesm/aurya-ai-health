@@ -131,8 +131,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       // Enviar para análise
       const response = await supabase.functions.invoke('voice-analysis', {
         body: {
-          audio: audioBase64,
-          analysisType
+          audio: audioBase64
         }
       });
 
