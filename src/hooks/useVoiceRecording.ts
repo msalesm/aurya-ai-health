@@ -83,7 +83,7 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
   }, [isRecording]);
 
   const analyzeVoice = useCallback(async () => {
-    if (!audioData || !audioBlobRef.current) {
+    if (!audioBlobRef.current) {
       throw new Error('Nenhum áudio disponível para análise');
     }
 
@@ -91,59 +91,50 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     setError(null);
 
     try {
-      console.log('Iniciando análise híbrida com características reais de áudio...');
+      console.log('Iniciando análise com a versão melhorada da edge function...');
       
-      // 1. Análise de características reais do áudio
+      // 1. Análise de características reais do áudio (mantida para comparação)
       const realAudioAnalysis = await analyzeRealAudio(audioBlobRef.current);
       console.log('Análise de áudio real:', realAudioAnalysis);
 
-      // 2. Análise textual e emocional via Supabase
-      const response = await supabase.functions.invoke('hybrid-voice-analysis', {
-        body: {
-          audioData: `data:audio/webm;base64,${audioData}`,
-          userId: 'demo-user-id',
-          preferredProvider: 'hybrid'
-        }
+      // 2. Preparar FormData para nova edge function
+      const formData = new FormData();
+      formData.append('audio', audioBlobRef.current, 'audio.webm');
+      formData.append('user_id', 'demo-user-id'); // TODO: usar ID real do usuário autenticado
+      formData.append('session_duration', Math.floor(audioBlobRef.current.size / 8000).toString());
+
+      // 3. Chamar a edge function melhorada usando supabase client
+      const response = await supabase.functions.invoke('voice-analysis', {
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       if (response.error) {
-        console.warn('Análise textual falhou, usando apenas análise de áudio real:', response.error);
+        throw new Error(response.error.message || 'Erro na análise de voz');
       }
 
-      // 3. Combinar análise real de áudio com análise textual
+      const analysisResult = response.data;
+      
+      if (!analysisResult.success) {
+        throw new Error(analysisResult.error || 'Falha na análise');
+      }
+
+      // 4. Combinar com análise real de áudio
       const combinedAnalysis = {
-        transcription: response.data?.analysis?.transcription || 'Transcrição não disponível',
+        transcription: analysisResult.transcription,
+        emotional_tone: analysisResult.emotional_tone,
+        stress_indicators: analysisResult.stress_indicators,
+        psychological_analysis: analysisResult.psychological_analysis,
+        voice_metrics: analysisResult.voice_metrics,
+        confidence_score: analysisResult.confidence_score,
         real_audio_features: realAudioAnalysis.features,
-        emotional_tone: {
-          primary_emotion: realAudioAnalysis.emotionalState,
-          confidence: realAudioAnalysis.confidence,
-          source: 'real_audio_analysis'
-        },
-        stress_indicators: {
-          stress_level: realAudioAnalysis.stressLevel,
-          voice_quality: realAudioAnalysis.voiceQuality,
-          breathing_pattern: realAudioAnalysis.breathingPattern,
-          pitch_analysis: {
-            fundamental_frequency: realAudioAnalysis.features.pitch,
-            pitch_stability: realAudioAnalysis.features.pitch > 80 && realAudioAnalysis.features.pitch < 300
-          },
-          volume_analysis: {
-            average_volume: realAudioAnalysis.features.volume,
-            volume_consistency: realAudioAnalysis.features.volume > 0.1
-          }
-        },
-        respiratory_analysis: {
-          breathing_rate: realAudioAnalysis.breathingPattern === 'shallow' ? 22 : 16,
-          irregularity_detected: realAudioAnalysis.breathingPattern !== 'normal',
-          speech_effort_level: realAudioAnalysis.voiceQuality === 'weak' ? 'high' : 'normal'
-        },
-        session_duration: realAudioAnalysis.features.duration,
-        confidence_score: realAudioAnalysis.confidence,
         analysis_timestamp: new Date().toISOString(),
-        analysis_method: 'hybrid_real_audio_plus_text'
+        analysis_method: 'enhanced_voice_analysis_with_database_persistence'
       };
 
-      console.log('Análise híbrida completa:', combinedAnalysis);
+      console.log('Análise completa:', combinedAnalysis);
       
       return {
         success: true,
@@ -154,11 +145,12 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido na análise';
       setError(errorMessage);
+      console.error('Erro na análise de voz:', err);
       throw err;
     } finally {
       setIsProcessing(false);
     }
-  }, [audioData, analyzeRealAudio]);
+  }, [analyzeRealAudio]);
 
   return {
     isRecording,

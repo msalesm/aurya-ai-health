@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, MicOff, Volume2, VolumeX, MessageSquare, PlayCircle, Activity } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, MessageSquare, PlayCircle, Activity, Zap, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { RealtimeVoiceChat } from '@/utils/RealtimeVoiceChat';
 import { AudioVisualization } from './AudioVisualization';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import EnhancedVoiceAnalysisDisplay from './EnhancedVoiceAnalysisDisplay';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
@@ -37,8 +39,20 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [microphoneTest, setMicrophoneTest] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [voiceAnalysisResult, setVoiceAnalysisResult] = useState<any>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const chatRef = useRef<RealtimeVoiceChat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Hook para análise de voz melhorada
+  const { 
+    isRecording: isVoiceRecording, 
+    isProcessing: isVoiceProcessing, 
+    startRecording, 
+    stopRecording, 
+    analyzeVoice, 
+    error: voiceError 
+  } = useVoiceRecording();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -252,6 +266,80 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
     }
   };
 
+  const handleQuickVoiceAnalysis = async () => {
+    try {
+      if (!isVoiceRecording) {
+        // Iniciar gravação
+        await startRecording();
+        toast({
+          title: "Gravação iniciada",
+          description: "Fale por alguns segundos para análise. Clique novamente para parar.",
+        });
+        
+        // Auto-stop após 10 segundos
+        setTimeout(async () => {
+          if (isVoiceRecording) {
+            await stopRecording();
+            // Aguardar um pouco para o áudio estar disponível e depois analisar
+            setTimeout(async () => {
+              try {
+                const result = await analyzeVoice();
+                setVoiceAnalysisResult(result.analysis);
+                setShowAnalysis(true);
+                if (onAnalysisComplete) {
+                  onAnalysisComplete(result);
+                }
+                toast({
+                  title: "Análise concluída",
+                  description: "Confira os resultados abaixo.",
+                });
+              } catch (error) {
+                console.error('Erro na análise:', error);
+                toast({
+                  title: "Erro na análise",
+                  description: error instanceof Error ? error.message : 'Falha na análise',
+                  variant: "destructive",
+                });
+              }
+            }, 1000);
+          }
+        }, 10000);
+      } else {
+        // Parar gravação e analisar
+        await stopRecording();
+        // Aguardar um pouco para o áudio estar disponível
+        setTimeout(async () => {
+          try {
+            const result = await analyzeVoice();
+            setVoiceAnalysisResult(result.analysis);
+            setShowAnalysis(true);
+            if (onAnalysisComplete) {
+              onAnalysisComplete(result);
+            }
+            toast({
+              title: "Análise concluída",
+              description: "Confira os resultados detalhados abaixo.",
+            });
+          } catch (error) {
+            console.error('Erro na análise:', error);
+            toast({
+              title: "Erro na análise",
+              description: error instanceof Error ? error.message : 'Falha na análise',
+              variant: "destructive",
+            });
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Erro na gravação:', error);
+      toast({
+        title: "Erro na gravação",
+        description: error instanceof Error ? error.message : 'Falha ao acessar microfone',
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleClose = () => {
     if (isConnected) {
       endConversation();
@@ -314,15 +402,24 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                     </>
                   )}
                 </Button>
-                <Button 
-                  onClick={testMicrophone}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  disabled={microphoneTest === 'testing'}
-                >
-                  <Volume2 className="h-4 w-4" />
-                  {microphoneTest === 'testing' ? 'Testando...' : 'Testar Microfone'}
-                </Button>
+                 <Button 
+                   onClick={testMicrophone}
+                   variant="outline"
+                   className="flex items-center gap-2"
+                   disabled={microphoneTest === 'testing'}
+                 >
+                   <Volume2 className="h-4 w-4" />
+                   {microphoneTest === 'testing' ? 'Testando...' : 'Testar Microfone'}
+                 </Button>
+                 <Button 
+                   onClick={handleQuickVoiceAnalysis}
+                   variant="secondary"
+                   className="flex items-center gap-2"
+                   disabled={isVoiceRecording || isVoiceProcessing}
+                 >
+                   <Zap className="h-4 w-4" />
+                   {isVoiceRecording ? 'Gravando...' : isVoiceProcessing ? 'Analisando...' : 'Análise Rápida'}
+                 </Button>
               </>
             ) : (
               <div className="flex gap-2">
@@ -447,6 +544,37 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
               </div>
             </div>
           </Card>
+
+          {/* Exibição da Análise de Voz Melhorada */}
+          {showAnalysis && voiceAnalysisResult && (
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  Análise de Voz Completa
+                </h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowAnalysis(false)}
+                >
+                  Ocultar
+                </Button>
+              </div>
+              <EnhancedVoiceAnalysisDisplay analysis={voiceAnalysisResult} />
+            </Card>
+          )}
+
+          {/* Erro de análise de voz */}
+          {voiceError && (
+            <Card className="p-4 border-red-200 bg-red-50">
+              <div className="flex items-center gap-2 text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-medium">Erro na análise de voz:</span>
+              </div>
+              <p className="text-sm text-red-600 mt-1">{voiceError}</p>
+            </Card>
+          )}
 
           {/* Estatísticas da Conversa */}
           {messages.length > 0 && (
