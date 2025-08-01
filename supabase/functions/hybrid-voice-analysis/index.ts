@@ -51,8 +51,8 @@ serve(async (req) => {
       };
     }
 
-    // 3. Análise de estresse vocal (simulada baseada em características de áudio)
-    const stressAnalysis = analyzeVocalStress(transcription.text);
+    // 3. Análise de estresse vocal (baseada em características temporais e linguísticas)
+    const stressAnalysis = analyzeVocalStress(transcription.text, transcription);
 
     // 4. Análise respiratória baseada no padrão de fala
     const respiratoryAnalysis = analyzeRespiratoryFromSpeech(transcription.text);
@@ -95,7 +95,7 @@ async function transcribeWithOpenAI(audioData: string) {
   try {
     console.log('Transcribing with OpenAI Whisper...');
     
-    // Converter base64 para blob
+    // Converter base64 para blob - melhor tratamento para WebM Opus
     const cleanBase64 = audioData.replace(/^data:audio\/[^;]+;base64,/, '');
     const binaryString = atob(cleanBase64);
     const bytes = new Uint8Array(binaryString.length);
@@ -104,12 +104,13 @@ async function transcribeWithOpenAI(audioData: string) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    const audioBlob = new Blob([bytes], { type: 'audio/webm' });
+    const audioBlob = new Blob([bytes], { type: 'audio/webm;codecs=opus' });
     
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('model', 'whisper-1');
     formData.append('language', 'pt');
+    formData.append('response_format', 'verbose_json'); // Dados extras para análise
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -124,7 +125,13 @@ async function transcribeWithOpenAI(audioData: string) {
     }
 
     const data = await response.json();
-    return { text: data.text, provider: 'ai_transcription' };
+    return { 
+      text: data.text, 
+      provider: 'ai_transcription',
+      duration: data.duration || 0,
+      segments: data.segments || [],
+      language: data.language || 'pt'
+    };
     
   } catch (error) {
     console.error('OpenAI transcription failed:', error);
@@ -308,8 +315,8 @@ function combineEmotionalAnalysis(openAIResult: any, googleResult: any) {
   };
 }
 
-function analyzeVocalStress(text: string) {
-  // Análise de estresse baseada no conteúdo textual E características de fala
+function analyzeVocalStress(text: string, transcriptionData: any = {}) {
+  // Análise de estresse baseada no conteúdo textual E características temporais
   const stressKeywords = ['dor', 'preocupado', 'ansioso', 'nervoso', 'estresse', 'medo', 'tensão', 'pânico', 'desespero'];
   const calmKeywords = ['calmo', 'tranquilo', 'bem', 'normal', 'relaxado', 'sereno', 'paz'];
   
@@ -330,6 +337,26 @@ function analyzeVocalStress(text: string) {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const avgSentenceLength = sentences.length > 0 ? text.length / sentences.length : 0;
   const interruptionMarkers = (text.match(/\.\.\.|,|;/g) || []).length;
+  
+  // Análise temporal baseada em segmentos da transcrição
+  if (transcriptionData.segments && transcriptionData.segments.length > 0) {
+    const segments = transcriptionData.segments;
+    let totalPauses = 0;
+    let speechRate = 0;
+    
+    for (let i = 1; i < segments.length; i++) {
+      const pause = segments[i].start - segments[i-1].end;
+      if (pause > 0.5) totalPauses++; // Pausas longas
+    }
+    
+    // Taxa de fala (palavras por minuto)
+    const totalDuration = transcriptionData.duration || 1;
+    speechRate = (words.length / totalDuration) * 60;
+    
+    // Indicadores temporais de stress
+    if (speechRate > 180 || speechRate < 100) stressScore += 1; // Muito rápido ou lento
+    if (totalPauses > segments.length * 0.4) stressScore += 1; // Muitas pausas
+  }
   
   // Frases muito curtas ou interrompidas podem indicar stress
   if (avgSentenceLength < 15) stressScore += 1;
@@ -353,8 +380,22 @@ function analyzeVocalStress(text: string) {
     interruption_frequency: interruptionMarkers,
     repetition_count: repetitions,
     sentence_fragmentation: avgSentenceLength < 15,
-    indicators: stressScore > 3 ? ['linguistic_stress_markers', 'speech_pattern_irregularities'] : ['normal_speech_patterns']
+    temporal_analysis: {
+      segments_count: transcriptionData.segments?.length || 0,
+      estimated_speech_rate: transcriptionData.duration ? (words.length / transcriptionData.duration) * 60 : 0,
+      pause_frequency: transcriptionData.segments ? countLongPauses(transcriptionData.segments) : 0
+    },
+    indicators: stressScore > 3 ? ['linguistic_stress_markers', 'speech_pattern_irregularities', 'temporal_anomalies'] : ['normal_speech_patterns']
   };
+}
+
+function countLongPauses(segments: any[]): number {
+  let longPauses = 0;
+  for (let i = 1; i < segments.length; i++) {
+    const pause = segments[i].start - segments[i-1].end;
+    if (pause > 0.5) longPauses++;
+  }
+  return longPauses;
 }
 
 function analyzeRespiratoryFromSpeech(text: string) {

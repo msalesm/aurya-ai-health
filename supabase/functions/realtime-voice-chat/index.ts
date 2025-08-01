@@ -75,10 +75,15 @@ Responda sempre em português brasileiro e mantenha um tom profissional e acolhe
       // Upgrade client connection to WebSocket
       const { socket: clientSocket, response } = Deno.upgradeWebSocket(req);
       
-      // Connect to OpenAI's WebSocket API
+      // Connect to OpenAI's WebSocket API using correct protocol
       const openAISocket = new WebSocket(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
-        ['realtime', `authorization.bearer.${ephemeralToken}`]
+        {
+          headers: {
+            'Authorization': `Bearer ${ephemeralToken}`,
+            'OpenAI-Beta': 'realtime=v1'
+          }
+        }
       );
 
       let sessionEstablished = false;

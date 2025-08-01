@@ -199,6 +199,7 @@ export class RealtimeVoiceChat {
       const wsUrl = `wss://skwpuolpkgntqdmgzwlr.functions.supabase.co/realtime-voice-chat`;
       console.log('Connecting to WebSocket proxy:', wsUrl);
       
+      // Add headers for WebSocket upgrade
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {

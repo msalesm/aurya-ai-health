@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, MicOff, Volume2, VolumeX, MessageSquare, PlayCircle } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, MessageSquare, PlayCircle, Activity } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { RealtimeVoiceChat } from '@/utils/RealtimeVoiceChat';
+import { AudioVisualization } from './AudioVisualization';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   const [assistantTranscript, setAssistantTranscript] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<string>('Desconectado');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [microphoneTest, setMicrophoneTest] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const chatRef = useRef<RealtimeVoiceChat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -185,17 +188,65 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
   };
 
   const testMicrophone = async () => {
+    setMicrophoneTest('testing');
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      toast({
-        title: "Microfone OK",
-        description: "Microfone está funcionando corretamente",
+      console.log('Testing microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
+      
+      // Test for 3 seconds with real audio analysis
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      source.connect(analyser);
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let maxLevel = 0;
+      
+      const checkAudio = () => {
+        analyser.getByteTimeDomainData(dataArray);
+        const level = Math.max(...dataArray) / 255;
+        maxLevel = Math.max(maxLevel, level);
+      };
+      
+      const interval = setInterval(checkAudio, 100);
+      
+      setTimeout(() => {
+        clearInterval(interval);
+        stream.getTracks().forEach(track => track.stop());
+        audioContext.close();
+        
+        if (maxLevel > 0.1) {
+          setMicrophoneTest('success');
+          setAudioStream(stream);
+          toast({
+            title: "Microfone funcionando",
+            description: `Nível de áudio detectado: ${Math.round(maxLevel * 100)}%`,
+          });
+        } else {
+          setMicrophoneTest('error');
+          toast({
+            title: "Microfone silencioso",
+            description: "Microfone acessível mas não detecta áudio. Fale durante o teste.",
+            variant: "destructive",
+          });
+        }
+      }, 3000);
+      
     } catch (error) {
+      console.error('Erro no teste do microfone:', error);
+      setMicrophoneTest('error');
       toast({
-        title: "Erro no Microfone",
-        description: "Verifique as permissões do microfone",
+        title: "Erro no microfone",
+        description: "Verifique as permissões e se o microfone está conectado",
         variant: "destructive",
       });
     }
@@ -267,9 +318,10 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
                   onClick={testMicrophone}
                   variant="outline"
                   className="flex items-center gap-2"
+                  disabled={microphoneTest === 'testing'}
                 >
                   <Volume2 className="h-4 w-4" />
-                  Testar Microfone
+                  {microphoneTest === 'testing' ? 'Testando...' : 'Testar Microfone'}
                 </Button>
               </>
             ) : (
@@ -294,6 +346,38 @@ const VoiceAssistantModal: React.FC<VoiceAssistantModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Status do teste de microfone */}
+          {microphoneTest !== 'idle' && (
+            <div className="flex items-center gap-2 justify-center">
+              {microphoneTest === 'testing' && (
+                <>
+                  <Activity className="w-4 h-4 animate-pulse text-blue-500" />
+                  <span className="text-sm text-muted-foreground">Fale no microfone...</span>
+                </>
+              )}
+              {microphoneTest === 'success' && (
+                <>
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-green-600">Microfone funcionando</span>
+                </>
+              )}
+              {microphoneTest === 'error' && (
+                <>
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-sm text-red-600">Problema no microfone</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Audio Visualization */}
+          {isConnected && (
+            <AudioVisualization 
+              isRecording={isConnected}
+              audioStream={audioStream}
+            />
+          )}
 
           {/* Chat de Conversa */}
           <Card className="p-4 h-96 overflow-hidden">
