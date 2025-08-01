@@ -186,14 +186,31 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
+      // Map analysis data to voice_analysis table structure
+      const emotionalTone = analysis.emotional_tone || null;
+      const stressIndicators = analysis.stress_indicators || null;
+      const psychologicalAnalysis = analysis.psychological_analysis || null;
+
       const { data, error } = await supabase
-        .from('voice_analyses')
+        .from('voice_analysis')
         .insert({
           user_id: userId || null,
           transcription: transcription,
-          analysis_result: analysis,
+          emotional_tone: emotionalTone,
+          stress_indicators: stressIndicators,
+          psychological_analysis: psychologicalAnalysis,
+          confidence_score: analysis.confidence_score || 0.75,
           session_duration: sessionDuration ? parseInt(sessionDuration) : null,
-          created_at: new Date().toISOString()
+          pitch_average: analysis.voice_metrics?.speech_rate || 150,
+          pitch_variability: 0, // Placeholder
+          volume_average: 0, // Placeholder
+          jitter: 0, // Placeholder
+          harmonics: 0, // Placeholder
+          speech_rate: analysis.voice_metrics?.speech_rate || 150,
+          pause_frequency: 0, // Placeholder
+          audio_file_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (error) {
