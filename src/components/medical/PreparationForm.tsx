@@ -36,6 +36,11 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
   const [isTestingDevices, setIsTestingDevices] = useState(false);
 
   useEffect(() => {
+    // Executar teste automático na montagem
+    testDevices();
+  }, []);
+
+  useEffect(() => {
     // Verificar se o formulário está válido
     const isValid = userData.name.trim().length > 0 && 
                    userData.age.trim().length > 0 && 
