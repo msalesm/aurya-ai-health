@@ -420,6 +420,35 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Controls */}
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            
+            <div className="space-x-2">
+              {!isRecording ? (
+                <Button onClick={startTelemetry} className="space-x-2">
+                  <Play className="h-4 w-4" />
+                  <span>Start Analysis</span>
+                </Button>
+              ) : (
+                <>
+                  {canContinue && (
+                    <Button onClick={continueToNextStep} className="space-x-2">
+                      <ArrowRight className="h-4 w-4" />
+                      <span>Continuar para Anamnese</span>
+                    </Button>
+                  )}
+                  <Button onClick={stopTelemetry} variant="outline" className="space-x-2">
+                    <Square className="h-4 w-4" />
+                    <span>Parar</span>
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Video Feed */}
           <div className="relative bg-muted rounded-lg overflow-hidden">
             <video
@@ -573,34 +602,6 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            
-            <div className="space-x-2">
-              {!isRecording ? (
-                <Button onClick={startTelemetry} className="space-x-2">
-                  <Play className="h-4 w-4" />
-                  <span>Start Analysis</span>
-                </Button>
-              ) : (
-                <>
-                  {canContinue && (
-                    <Button onClick={continueToNextStep} className="space-x-2">
-                      <ArrowRight className="h-4 w-4" />
-                      <span>Continuar para Anamnese</span>
-                    </Button>
-                  )}
-                  <Button onClick={stopTelemetry} variant="outline" className="space-x-2">
-                    <Square className="h-4 w-4" />
-                    <span>Parar</span>
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
