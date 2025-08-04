@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Bot, User, Send, MessageCircle, ClipboardList, ArrowRight, CheckCircle } from 'lucide-react';
+import { Bot, User, Send, ClipboardList, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
@@ -37,7 +37,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     {
       id: '1',
       type: 'ai',
-      content: 'Olá! Sou a IA médica da Triia. Vou fazer 10 perguntas essenciais para entender seu estado de saúde, uma por vez. Depois poderemos conversar livremente se necessário. Está pronto para começar?',
+      content: 'Olá! Sou a IA médica da Triia. Vou fazer 10 perguntas essenciais para entender seu estado de saúde, uma por vez. Após as perguntas, gerei uma análise completa. Está pronto para começar?',
       timestamp: new Date(),
       category: 'introdução'
     }
@@ -48,7 +48,6 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1); // -1 = não iniciado
   const [structuredAnswers, setStructuredAnswers] = useState<Record<string, any>>({});
   const [isStructuredPhase, setIsStructuredPhase] = useState(true);
-  const [isFreeConversationPhase, setIsFreeConversationPhase] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [questionStarted, setQuestionStarted] = useState(false);
   
@@ -163,8 +162,6 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
 
     if (isStructuredPhase && currentQuestionIndex >= 0) {
       handleStructuredResponse(userMessage);
-    } else if (isFreeConversationPhase) {
-      await handleFreeConversation(userMessage);
     }
   };
 
@@ -208,7 +205,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
         // Complete structured questions phase
         setIsStructuredPhase(false);
         addMessage(
-          'Excelente! Terminamos as 10 perguntas essenciais. Agora, gostaria de conversar mais sobre algum sintoma específico ou posso processar essas informações para gerar sua análise?',
+          'Excelente! Terminamos as 10 perguntas essenciais. Agora posso processar essas informações para gerar sua análise médica completa.',
           'ai',
           'transição'
         );
@@ -217,58 +214,6 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     }, 800);
   };
 
-  const handleFreeConversation = async (userMessage: string) => {
-    setIsLoading(true);
-    
-    try {
-      const conversationHistory = messages.map(msg => ({
-        role: msg.type === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      }));
-
-      const { data, error } = await supabase.functions.invoke('medical-anamnesis', {
-        body: {
-          message: userMessage,
-          userId: 'anon-user',
-          conversationHistory,
-          isStructuredAnalysis: false
-        }
-      });
-
-      if (error) throw error;
-
-      addMessage(data.response, 'ai');
-      
-      // Offer to complete analysis after some free conversation
-      if (messages.filter(msg => msg.type === 'user' && msg.category !== 'introdução').length >= 3) {
-        setTimeout(() => {
-          addMessage(
-            'Posso gerar sua análise médica agora com base nas informações coletadas. Gostaria de continuar conversando ou está pronto para ver os resultados?',
-            'ai',
-            'análise'
-          );
-        }, 2000);
-      }
-
-    } catch (error) {
-      console.error('Erro na conversa:', error);
-      addMessage(
-        'Desculpe, houve um problema. Pode repetir ou reformular sua resposta?',
-        'ai'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const startFreeConversation = () => {
-    setIsFreeConversationPhase(true);
-    addMessage(
-      'Perfeito! Agora podemos conversar livremente. Conte-me mais detalhes sobre como você está se sentindo ou tire suas dúvidas.',
-      'ai',
-      'conversa_livre'
-    );
-  };
 
   const completeAnalysis = async () => {
     setIsLoading(true);
@@ -468,27 +413,12 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       }
     }
 
-    if (!isStructuredPhase && !isFreeConversationPhase) {
+    if (!isStructuredPhase) {
       return (
         <div className="flex gap-2 mb-2">
-          <Button size="sm" variant="outline" onClick={startFreeConversation}>
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Conversar mais
-          </Button>
           <Button size="sm" onClick={completeAnalysis}>
             <ArrowRight className="h-4 w-4 mr-1" />
             Gerar Análise
-          </Button>
-        </div>
-      );
-    }
-
-    if (isFreeConversationPhase) {
-      return (
-        <div className="flex gap-2 mb-2">
-          <Button size="sm" onClick={completeAnalysis}>
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Finalizar e Analisar
           </Button>
         </div>
       );
@@ -528,15 +458,8 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <ArrowRight className="h-4 w-4 text-green-500" />
               <span>Questionário estruturado concluído</span>
-              {isFreeConversationPhase && (
-                <>
-                  <span>•</span>
-                  <MessageCircle className="h-4 w-4 text-blue-500" />
-                  <span>Conversação livre ativa</span>
-                </>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -640,8 +563,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
             <p className="text-xs text-muted-foreground text-center">
               {!questionStarted && 'Confirme para iniciar o questionário estruturado'}
               {questionStarted && isStructuredPhase && `Responda uma pergunta por vez • ${currentQuestionIndex + 1}/10`}
-              {isFreeConversationPhase && 'Conversação livre ativa • Pode finalizar a qualquer momento'}
-              {!isStructuredPhase && !isFreeConversationPhase && 'Escolha como prosseguir com sua consulta'}
+              {!isStructuredPhase && 'Clique em "Gerar Análise" para processar suas respostas'}
             </p>
           </CardContent>
         </Card>
