@@ -8,7 +8,7 @@ const TriageHeader = () => {
           <div className="p-3 bg-white/10 rounded-full">
             <Heart className="h-8 w-8" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold">Aurya</h1>
+          <h1 className="text-4xl md:text-5xl font-bold">Triia</h1>
           <div className="p-3 bg-white/10 rounded-full">
             <Activity className="h-8 w-8" />
           </div>
