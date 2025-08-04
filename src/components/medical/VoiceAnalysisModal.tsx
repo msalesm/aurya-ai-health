@@ -145,9 +145,18 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             </div>
           )}
 
+          {/* Botão de Conclusão - Posicionado para fácil acesso */}
+          {analysisResult && (
+            <div className="text-center">
+              <Button onClick={handleComplete} size="lg" className="w-full">
+                Concluir Análise
+              </Button>
+            </div>
+          )}
+
           {analysisResult && (
             <div className="space-y-4 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold">Resultado da Análise:</h3>
+              <h3 className="font-semibold">Detalhes da Análise:</h3>
               <div className="space-y-4">
                 <div>
                   <p className="font-medium">Transcrição:</p>
@@ -213,10 +222,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
                   Duração da sessão: {analysisResult.analysis?.session_duration || 0}s
                 </div>
               </div>
-              
-              <Button onClick={handleComplete} className="w-full">
-                Concluir Análise
-              </Button>
             </div>
           )}
 
