@@ -15,7 +15,7 @@ interface VoiceAnalysisModalProps {
 
 const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalProps) => {
   const [recordingTime, setRecordingTime] = useState(0);
-  const [maxRecordingTime] = useState(60); // 60 segundos máximo
+  const [maxRecordingTime] = useState(20); // 20 segundos máximo
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   
   const {
@@ -93,7 +93,7 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             <p className="text-sm text-muted-foreground">
               Por favor, fale sobre os sintomas que você está sentindo. Descreva como se sente, 
               há quanto tempo, intensidade e qualquer outro detalhe relevante. Fale naturalmente 
-              por pelo menos 30 segundos para uma análise mais precisa.
+              por pelo menos 15 segundos para uma análise mais precisa.
             </p>
           </div>
 

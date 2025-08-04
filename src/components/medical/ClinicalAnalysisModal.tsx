@@ -19,6 +19,7 @@ import {
 interface ClinicalAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onComplete?: () => void;
   voiceAnalysis?: any;
   facialAnalysis?: any;
   anamnesisResults?: any;
@@ -27,6 +28,7 @@ interface ClinicalAnalysisModalProps {
 export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   isOpen,
   onClose,
+  onComplete,
   voiceAnalysis,
   facialAnalysis,
   anamnesisResults
@@ -432,7 +434,13 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             </Card>
 
             <div className="flex gap-3">
-              <Button onClick={onClose} className="flex-1">
+              <Button 
+                onClick={() => {
+                  onComplete?.();
+                  onClose();
+                }} 
+                className="flex-1"
+              >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Finalizar Análise
               </Button>
