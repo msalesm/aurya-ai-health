@@ -18,7 +18,7 @@ const AnamnesisChat = () => {
     {
       id: "1",
       type: "ai",
-      content: "Olá! Sou a IA médica da Aurya. Vou fazer algumas perguntas para entender melhor seu estado de saúde. Qual é o principal sintoma que você está sentindo hoje?",
+      content: "Olá! Sou a IA médica do Triia. Vou fazer algumas perguntas para entender melhor seu estado de saúde. Qual é o principal sintoma que você está sentindo hoje?",
       timestamp: new Date()
     }
   ]);

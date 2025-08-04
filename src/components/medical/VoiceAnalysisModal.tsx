@@ -87,6 +87,16 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Instruções */}
+          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <p className="text-sm text-primary font-medium mb-2">Instruções para Análise de Voz</p>
+            <p className="text-sm text-muted-foreground">
+              Por favor, fale sobre os sintomas que você está sentindo. Descreva como se sente, 
+              há quanto tempo, intensidade e qualquer outro detalhe relevante. Fale naturalmente 
+              por pelo menos 30 segundos para uma análise mais precisa.
+            </p>
+          </div>
+
           {/* Status e Timer */}
           <div className="text-center space-y-4">
             <div className={`

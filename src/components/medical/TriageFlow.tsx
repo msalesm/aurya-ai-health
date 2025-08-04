@@ -16,12 +16,15 @@ import VoiceAnalysisModal from "./VoiceAnalysisModal";
 import { FacialTelemetryModal } from "./FacialTelemetryModal";
 import AnamnesisModal from "./AnamnesisModal";
 import { ClinicalAnalysisModal } from "./ClinicalAnalysisModal";
+import PreparationForm from "./PreparationForm";
 
-type TriageStep = "preparation" | "facial-analysis" | "voice-analysis" | "anamnesis" | "clinical-analysis";
+type TriageStep = "preparation" | "anamnesis" | "facial-analysis" | "voice-analysis" | "clinical-analysis";
 
 const TriageFlow = () => {
   const [currentStep, setCurrentStep] = useState<TriageStep>("preparation");
-  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set(["preparation"]));
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const [showPreparationForm, setShowPreparationForm] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
   
   // Modal states
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -36,29 +39,29 @@ const TriageFlow = () => {
     {
       id: "preparation",
       title: "Preparação",
-      description: "Verificação de equipamentos e orientações iniciais",
+      description: "Informações pessoais e verificação de equipamentos",
       icon: <ClipboardList className="h-6 w-6" />,
-      status: "completed"
+      status: "active"
+    },
+    {
+      id: "anamnesis",
+      title: "Anamnese Estruturada",
+      description: "Questionário médico com chat inteligente",
+      icon: <Brain className="h-6 w-6" />,
+      status: "pending"
     },
     {
       id: "facial-analysis",
       title: "Análise Facial Completa",
       description: "Telemetria facial, rPPG e análise biométrica",
       icon: <Video className="h-6 w-6" />,
-      status: currentStep === "facial-analysis" ? "active" : "pending"
+      status: "pending"
     },
     {
       id: "voice-analysis",
       title: "Análise de Voz",
       description: "Padrões vocais, emocionais e respiratórios",
       icon: <Mic className="h-6 w-6" />,
-      status: "pending"
-    },
-    {
-      id: "anamnesis",
-      title: "Anamnese Inteligente",
-      description: "Conversa estruturada com IA sobre sintomas",
-      icon: <Brain className="h-6 w-6" />,
       status: "pending"
     },
     {
@@ -70,19 +73,31 @@ const TriageFlow = () => {
     }
   ];
 
+  const handlePreparationComplete = (data: any) => {
+    setUserData(data);
+    setCompletedSteps(prev => new Set(prev).add("preparation"));
+    setShowPreparationForm(false);
+    setCurrentStep("anamnesis");
+    
+    // Automaticamente abrir a anamnese
+    setTimeout(() => {
+      setShowAnamnesisModal(true);
+    }, 500);
+  };
+
   const handleStartStep = (step: TriageStep) => {
     setCurrentStep(step);
     
     // Open appropriate modal based on step
     switch (step) {
+      case "anamnesis":
+        setShowAnamnesisModal(true);
+        break;
       case "facial-analysis":
         setShowFacialModal(true);
         break;
       case "voice-analysis":
         setShowVoiceModal(true);
-        break;
-      case "anamnesis":
-        setShowAnamnesisModal(true);
         break;
       case "clinical-analysis":
         setShowClinicalModal(true);
@@ -123,14 +138,22 @@ const TriageFlow = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0">
-      <Card className="shadow-card">
-        <CardHeader className="pb-3 md:pb-6">
-          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-            <Stethoscope className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-            Fluxo de Triagem Médica
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      {showPreparationForm ? (
+        <PreparationForm onComplete={handlePreparationComplete} />
+      ) : (
+        <Card className="shadow-card">
+          <CardHeader className="pb-3 md:pb-6">
+            <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Stethoscope className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              Fluxo de Triagem Médica
+              {userData && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  - {userData.name}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
           <div className="space-y-3 md:space-y-4">
             {steps.map((step, index) => {
               const status = getStepStatus(step.id);
@@ -210,6 +233,7 @@ const TriageFlow = () => {
           </div>
         </CardContent>
       </Card>
+      )}
       
           
           {/* Modals */}

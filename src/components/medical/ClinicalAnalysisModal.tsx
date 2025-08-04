@@ -296,7 +296,7 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
                 disabled={isAnalyzing}
                 size="lg"
               >
-                {isAnalyzing ? 'Analisando...' : 'Gerar Análise Consolidada'}
+                {isAnalyzing ? 'Analisando...' : 'Gerar Relatório'}
               </Button>
               
               {isAnalyzing && (
@@ -424,10 +424,10 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
             <div className="flex gap-2">
               <Button onClick={generatePDFReport} variant="outline" className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
-                Baixar Relatório PDF
+                Baixar PDF
               </Button>
               <Button onClick={onClose} className="flex-1">
-                Finalizar
+                Visualizar Relatório
               </Button>
             </div>
           </div>
