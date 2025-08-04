@@ -146,7 +146,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue.trim();
     setInputValue('');
@@ -182,6 +182,9 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
   };
 
   const handleStructuredResponse = (response: string) => {
+    if (isLoading) return; // Prevent duplicate processing
+    
+    setIsLoading(true);
     const currentQuestion = structuredQuestions[currentQuestionIndex];
     
     // Store the answer
@@ -191,28 +194,27 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     }));
 
     // Move to next question or complete structured phase
-    if (currentQuestionIndex < structuredQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      const nextQuestion = structuredQuestions[currentQuestionIndex + 1];
-      
-      setTimeout(() => {
+    setTimeout(() => {
+      if (currentQuestionIndex < structuredQuestions.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        const nextQuestion = structuredQuestions[currentQuestionIndex + 1];
+        
         addMessage(
           `**Pergunta ${currentQuestionIndex + 2}/10:**\n${nextQuestion.question}`,
           'ai',
           nextQuestion.category
         );
-      }, 1000);
-    } else {
-      // Complete structured questions phase
-      setIsStructuredPhase(false);
-      setTimeout(() => {
+      } else {
+        // Complete structured questions phase
+        setIsStructuredPhase(false);
         addMessage(
           'Excelente! Terminamos as 10 perguntas essenciais. Agora, gostaria de conversar mais sobre algum sintoma específico ou posso processar essas informações para gerar sua análise?',
           'ai',
           'transição'
         );
-      }, 1000);
-    }
+      }
+      setIsLoading(false);
+    }, 800);
   };
 
   const handleFreeConversation = async (userMessage: string) => {
@@ -375,17 +377,33 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       
       if (currentQuestion.type === 'yes_no') {
         return (
-          <div className="flex gap-2 mb-2">
-            <Button size="sm" variant="outline" onClick={() => {
-              setInputValue('Sim');
-              setTimeout(() => handleSendMessage(), 100);
-            }}>
+          <div className="flex gap-3 mb-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => {
+                if (!isLoading) {
+                  setInputValue('Sim');
+                  setTimeout(() => handleSendMessage(), 100);
+                }
+              }}
+              disabled={isLoading}
+              className="h-12 sm:h-10 px-6 flex-1"
+            >
               Sim
             </Button>
-            <Button size="sm" variant="outline" onClick={() => {
-              setInputValue('Não');
-              setTimeout(() => handleSendMessage(), 100);
-            }}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => {
+                if (!isLoading) {
+                  setInputValue('Não');
+                  setTimeout(() => handleSendMessage(), 100);
+                }
+              }}
+              disabled={isLoading}
+              className="h-12 sm:h-10 px-6 flex-1"
+            >
               Não
             </Button>
           </div>
@@ -394,17 +412,20 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       
       if (currentQuestion.type === 'multiple' && currentQuestion.options) {
         return (
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-2">
             {currentQuestion.options.map((option, index) => (
               <Button
                 key={index}
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setInputValue(option);
-                  setTimeout(() => handleSendMessage(), 100);
+                  if (!isLoading) {
+                    setInputValue(option);
+                    setTimeout(() => handleSendMessage(), 100);
+                  }
                 }}
-                className="text-xs h-auto py-2 px-3 whitespace-normal"
+                disabled={isLoading}
+                className="text-xs h-12 sm:h-10 py-2 px-3 whitespace-normal text-left justify-start"
               >
                 {option}
               </Button>
@@ -415,21 +436,33 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       
       if (currentQuestion.type === 'scale') {
         return (
-          <div className="grid grid-cols-11 gap-1 mb-2">
-            {Array.from({ length: 11 }, (_, i) => (
-              <Button
-                key={i}
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setInputValue(i.toString());
-                  setTimeout(() => handleSendMessage(), 100);
-                }}
-                className="p-1 h-8 text-xs"
-              >
-                {i}
-              </Button>
-            ))}
+          <div className="space-y-2 mb-4">
+            <div className="flex justify-between text-xs text-muted-foreground px-1">
+              <span>Sem dor</span>
+              <span>Insuportável</span>
+            </div>
+            <div className="grid grid-cols-6 sm:grid-cols-11 gap-1">
+              {Array.from({ length: 11 }, (_, i) => (
+                <Button
+                  key={i}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!isLoading) {
+                      setInputValue(i.toString());
+                      setTimeout(() => handleSendMessage(), 100);
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="h-10 sm:h-8 text-sm sm:text-xs font-medium"
+                >
+                  {i}
+                </Button>
+              ))}
+            </div>
+            <div className="text-xs text-center text-muted-foreground">
+              Selecione um número de 0 a 10
+            </div>
           </div>
         );
       }
@@ -512,7 +545,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       {/* Chat Messages */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea ref={scrollAreaRef} className="h-96 p-4">
+          <ScrollArea ref={scrollAreaRef} className="h-[70vh] sm:h-96 p-4">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -535,13 +568,13 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
                     )}
                   </div>
                   
-                  <div className={`
-                    max-w-[80%] rounded-lg p-3
-                    ${message.type === 'user'
-                      ? 'bg-primary text-primary-foreground ml-auto'
-                      : 'bg-muted text-muted-foreground'
-                    }
-                  `}>
+                   <div className={`
+                     max-w-[85%] sm:max-w-[80%] rounded-lg p-3
+                     ${message.type === 'user'
+                       ? 'bg-primary text-primary-foreground ml-auto'
+                       : 'bg-muted text-muted-foreground'
+                     }
+                   `}>
                     <p className="text-sm whitespace-pre-line">{message.content}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs opacity-70">
