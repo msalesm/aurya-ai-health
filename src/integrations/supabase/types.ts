@@ -1544,12 +1544,15 @@ export type Database = {
           avatar_url: string | null
           city: string | null
           created_at: string
+          emergency_contact: Json | null
           id: string
           is_public: boolean | null
           lgpd_consent: boolean | null
           lgpd_consent_date: string | null
+          medical_preferences: Json | null
           name: string
           phone: string | null
+          privacy_settings: Json | null
           reputation_score: number | null
           sign: string | null
           state: string | null
@@ -1563,12 +1566,15 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          emergency_contact?: Json | null
           id: string
           is_public?: boolean | null
           lgpd_consent?: boolean | null
           lgpd_consent_date?: string | null
+          medical_preferences?: Json | null
           name: string
           phone?: string | null
+          privacy_settings?: Json | null
           reputation_score?: number | null
           sign?: string | null
           state?: string | null
@@ -1582,12 +1588,15 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          emergency_contact?: Json | null
           id?: string
           is_public?: boolean | null
           lgpd_consent?: boolean | null
           lgpd_consent_date?: string | null
+          medical_preferences?: Json | null
           name?: string
           phone?: string | null
+          privacy_settings?: Json | null
           reputation_score?: number | null
           sign?: string | null
           state?: string | null
@@ -1835,6 +1844,19 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_user_consultation_history: {
+        Args: { user_uuid: string }
+        Returns: {
+          id: string
+          created_at: string
+          chief_complaint: string
+          symptoms: string[]
+          urgency_level: string
+          ai_diagnosis: string
+          status: string
+          assessment_score: number
+        }[]
       }
       has_role: {
         Args: {
