@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Bot, User, Send, MessageCircle, ClipboardList } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Bot, User, Send, MessageCircle, ClipboardList, ArrowRight, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
@@ -38,7 +37,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     {
       id: '1',
       type: 'ai',
-      content: 'Olá! Sou sua assistente médica virtual. Vou fazer algumas perguntas para entender melhor como você está se sentindo. Podemos conversar de forma livre ou seguir um questionário estruturado. O que prefere?',
+      content: 'Olá! Sou a IA médica da Triia. Vou fazer 10 perguntas essenciais para entender seu estado de saúde, uma por vez. Depois poderemos conversar livremente se necessário. Está pronto para começar?',
       timestamp: new Date(),
       category: 'introdução'
     }
@@ -46,31 +45,34 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
   
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [useStructuredMode, setUseStructuredMode] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1); // -1 = não iniciado
   const [structuredAnswers, setStructuredAnswers] = useState<Record<string, any>>({});
+  const [isStructuredPhase, setIsStructuredPhase] = useState(true);
+  const [isFreeConversationPhase, setIsFreeConversationPhase] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [questionStarted, setQuestionStarted] = useState(false);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
+  // 10 perguntas obrigatórias com múltipla escolha
   const structuredQuestions: QuestionSet[] = [
     {
       id: 'main_symptom',
       question: 'Qual é o seu principal sintoma ou preocupação hoje?',
       category: 'sintomas',
       type: 'multiple',
-      options: ['Dor', 'Febre', 'Náusea', 'Fadiga', 'Ansiedade', 'Dor de cabeça', 'Outro']
+      options: ['Dor', 'Febre', 'Náusea', 'Fadiga', 'Ansiedade', 'Dor de cabeça', 'Tontura', 'Outro']
     },
     {
       id: 'symptom_duration',
       question: 'Há quanto tempo você sente isso?',
       category: 'tempo',
       type: 'multiple',
-      options: ['Menos de 1 dia', '1-3 dias', '1 semana', 'Mais de 1 semana', 'Mais de 1 mês']
+      options: ['Menos de 1 hora', 'Algumas horas', '1 dia', '2-3 dias', '1 semana', 'Mais de 1 semana']
     },
     {
       id: 'pain_intensity',
-      question: 'Se você sente dor, qual a intensidade de 0 a 10?',
+      question: 'Se você sente dor, qual a intensidade de 0 a 10? (0 = sem dor, 10 = dor insuportável)',
       category: 'intensidade',
       type: 'scale'
     },
@@ -82,21 +84,43 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     },
     {
       id: 'breathing',
-      question: 'Tem dificuldade para respirar?',
+      question: 'Tem dificuldade para respirar ou falta de ar?',
       category: 'respiratorio',
       type: 'yes_no'
     },
     {
       id: 'chest_pain',
-      question: 'Sente dor no peito?',
+      question: 'Sente dor, aperto ou desconforto no peito?',
       category: 'cardiovascular',
       type: 'yes_no'
     },
     {
+      id: 'medications',
+      question: 'Você está tomando algum medicamento atualmente?',
+      category: 'medicamentos',
+      type: 'multiple',
+      options: ['Não tomo medicamentos', 'Medicamentos prescritos', 'Medicamentos sem receita', 'Vitaminas/Suplementos', 'Prefiro não informar']
+    },
+    {
+      id: 'family_history',
+      question: 'Há histórico familiar de doenças cardíacas, diabetes ou outras condições importantes?',
+      category: 'histórico',
+      type: 'multiple',
+      options: ['Não há histórico conhecido', 'Doenças cardíacas', 'Diabetes', 'Hipertensão', 'Câncer', 'Outras condições', 'Não sei informar']
+    },
+    {
+      id: 'associated_symptoms',
+      question: 'Você apresenta algum destes sintomas adicionais?',
+      category: 'sintomas',
+      type: 'multiple',
+      options: ['Nenhum dos listados', 'Náusea/Vômito', 'Sudorese excessiva', 'Tontura/Desmaio', 'Dor de cabeça intensa', 'Alterações na visão']
+    },
+    {
       id: 'recent_changes',
-      question: 'Houve alguma mudança recente na sua rotina, medicamentos ou estilo de vida?',
-      category: 'historico',
-      type: 'text'
+      question: 'Houve alguma mudança recente na sua rotina, estresse ou estilo de vida?',
+      category: 'contextual',
+      type: 'multiple',
+      options: ['Nenhuma mudança significativa', 'Aumento do estresse', 'Mudança na alimentação', 'Menos exercício', 'Problemas de sono', 'Outras mudanças']
     }
   ];
 
@@ -128,11 +152,33 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     setInputValue('');
     addMessage(userMessage, 'user');
 
-    if (useStructuredMode) {
+    // Verificar se é o início das perguntas
+    if (!questionStarted && (userMessage.toLowerCase().includes('sim') || 
+        userMessage.toLowerCase().includes('pronto') || 
+        userMessage.toLowerCase().includes('começar') ||
+        userMessage.toLowerCase().includes('vamos'))) {
+      startStructuredQuestions();
+      return;
+    }
+
+    if (isStructuredPhase && currentQuestionIndex >= 0) {
       handleStructuredResponse(userMessage);
-    } else {
+    } else if (isFreeConversationPhase) {
       await handleFreeConversation(userMessage);
     }
+  };
+
+  const startStructuredQuestions = () => {
+    setQuestionStarted(true);
+    setCurrentQuestionIndex(0);
+    
+    setTimeout(() => {
+      addMessage(
+        `Perfeito! Vamos começar com as 10 perguntas essenciais.\n\n**Pergunta 1/10:**\n${structuredQuestions[0].question}`,
+        'ai',
+        structuredQuestions[0].category
+      );
+    }, 1000);
   };
 
   const handleStructuredResponse = (response: string) => {
@@ -144,23 +190,27 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       [currentQuestion.id]: response
     }));
 
-    // Move to next question or complete
+    // Move to next question or complete structured phase
     if (currentQuestionIndex < structuredQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       const nextQuestion = structuredQuestions[currentQuestionIndex + 1];
       
       setTimeout(() => {
-        addMessage(nextQuestion.question, 'ai', nextQuestion.category);
+        addMessage(
+          `**Pergunta ${currentQuestionIndex + 2}/10:**\n${nextQuestion.question}`,
+          'ai',
+          nextQuestion.category
+        );
       }, 1000);
     } else {
-      // Complete structured assessment
+      // Complete structured questions phase
+      setIsStructuredPhase(false);
       setTimeout(() => {
         addMessage(
-          'Obrigada pelas respostas! Vou processar essas informações e gerar uma análise para você.',
+          'Excelente! Terminamos as 10 perguntas essenciais. Agora, gostaria de conversar mais sobre algum sintoma específico ou posso processar essas informações para gerar sua análise?',
           'ai',
-          'conclusão'
+          'transição'
         );
-        completeStructuredAnalysis();
       }, 1000);
     }
   };
@@ -187,11 +237,11 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
 
       addMessage(data.response, 'ai');
       
-      // Check if we have enough information to complete
-      if (messages.length >= 8) { // After a few exchanges
+      // Offer to complete analysis after some free conversation
+      if (messages.filter(msg => msg.type === 'user' && msg.category !== 'introdução').length >= 3) {
         setTimeout(() => {
           addMessage(
-            'Com base na nossa conversa, posso gerar uma análise inicial. Gostaria de continuar conversando ou posso processar as informações que temos?',
+            'Posso gerar sua análise médica agora com base nas informações coletadas. Gostaria de continuar conversando ou está pronto para ver os resultados?',
             'ai',
             'análise'
           );
@@ -209,29 +259,23 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     }
   };
 
-  const switchToStructuredMode = () => {
-    setUseStructuredMode(true);
-    setCurrentQuestionIndex(0);
-    
-    setTimeout(() => {
-      addMessage(
-        'Perfeito! Vou fazer perguntas específicas para ter um quadro completo. ' + 
-        structuredQuestions[0].question,
-        'ai',
-        structuredQuestions[0].category
-      );
-    }, 500);
+  const startFreeConversation = () => {
+    setIsFreeConversationPhase(true);
+    addMessage(
+      'Perfeito! Agora podemos conversar livremente. Conte-me mais detalhes sobre como você está se sentindo ou tire suas dúvidas.',
+      'ai',
+      'conversa_livre'
+    );
   };
 
-  const completeStructuredAnalysis = async () => {
+  const completeAnalysis = async () => {
     setIsLoading(true);
     
     try {
-      // Calculate urgency score based on structured answers
       const urgencyScore = calculateUrgencyScore(structuredAnswers);
       
       const analysis = {
-        type: 'structured',
+        type: 'complete',
         answers: structuredAnswers,
         urgencyScore,
         urgencyLevel: getUrgencyLevel(urgencyScore),
@@ -244,50 +288,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       onAnalysisComplete(analysis);
       
     } catch (error) {
-      console.error('Erro na análise estruturada:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const completeConversationAnalysis = async () => {
-    setIsLoading(true);
-    
-    try {
-      const conversationText = messages
-        .filter(msg => msg.type === 'user')
-        .map(msg => msg.content)
-        .join(' ');
-
-      const { data, error } = await supabase.functions.invoke('medical-anamnesis', {
-        body: {
-          message: `Análise final da conversa: ${conversationText}`,
-          userId: 'anon-user',
-          conversationHistory: messages.map(msg => ({
-            role: msg.type === 'user' ? 'user' : 'assistant',
-            content: msg.content
-          })),
-          isStructuredAnalysis: true
-        }
-      });
-
-      if (error) throw error;
-
-      const analysis = {
-        type: 'conversational',
-        conversationSummary: data.response,
-        conversationHistory: messages,
-        extractedSymptoms: extractSymptomsFromConversation(),
-        urgencyLevel: 'média', // Default for conversational
-        recommendations: ['Acompanhamento médico recomendado'],
-        timestamp: new Date().toISOString()
-      };
-
-      setIsComplete(true);
-      onAnalysisComplete(analysis);
-      
-    } catch (error) {
-      console.error('Erro na análise conversacional:', error);
+      console.error('Erro na análise:', error);
     } finally {
       setIsLoading(false);
     }
@@ -297,17 +298,24 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     let score = 0;
     
     // High priority symptoms
-    if (answers.breathing === 'sim' || answers.breathing?.toLowerCase().includes('sim')) score += 30;
-    if (answers.chest_pain === 'sim' || answers.chest_pain?.toLowerCase().includes('sim')) score += 25;
-    if (answers.fever_check === 'sim' || answers.fever_check?.toLowerCase().includes('sim')) score += 15;
+    if (answers.breathing === 'Sim' || answers.breathing?.toLowerCase().includes('sim')) score += 30;
+    if (answers.chest_pain === 'Sim' || answers.chest_pain?.toLowerCase().includes('sim')) score += 25;
+    if (answers.fever_check === 'Sim' || answers.fever_check?.toLowerCase().includes('sim')) score += 15;
     
     // Pain intensity
-    if (answers.pain_intensity >= 8) score += 20;
-    else if (answers.pain_intensity >= 6) score += 10;
-    else if (answers.pain_intensity >= 4) score += 5;
+    const painLevel = parseInt(answers.pain_intensity) || 0;
+    if (painLevel >= 8) score += 20;
+    else if (painLevel >= 6) score += 10;
+    else if (painLevel >= 4) score += 5;
     
-    // Duration factor
-    if (answers.symptom_duration === 'Menos de 1 dia' && score > 20) score += 10;
+    // Duration factor - shorter duration with high symptoms = urgent
+    if (answers.symptom_duration === 'Menos de 1 hora' && score > 20) score += 15;
+    if (answers.symptom_duration === 'Algumas horas' && score > 15) score += 10;
+    
+    // Associated symptoms
+    if (answers.associated_symptoms?.includes('Sudorese excessiva')) score += 10;
+    if (answers.associated_symptoms?.includes('Tontura/Desmaio')) score += 10;
+    if (answers.associated_symptoms?.includes('Dor de cabeça intensa')) score += 8;
     
     return Math.min(score, 100);
   };
@@ -323,36 +331,46 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     const recommendations = [];
     
     if (score >= 70) {
-      recommendations.push('Procure atendimento médico de emergência imediatamente');
-      recommendations.push('Considere chamar ambulância se necessário');
+      recommendations.push('🚨 Procure atendimento médico de emergência IMEDIATAMENTE');
+      recommendations.push('📞 Considere chamar SAMU (192) se necessário');
+      recommendations.push('🏥 Vá ao pronto-socorro mais próximo');
     } else if (score >= 50) {
-      recommendations.push('Procure atendimento médico urgente nas próximas horas');
+      recommendations.push('⚠️ Procure atendimento médico urgente nas próximas 2-4 horas');
+      recommendations.push('🏥 Vá a uma UPA ou pronto-socorro');
     } else if (score >= 30) {
-      recommendations.push('Agende consulta médica em 24-48 horas');
+      recommendations.push('📅 Agende consulta médica em 24-48 horas');
+      recommendations.push('📋 Monitore os sintomas e procure ajuda se piorarem');
     } else {
-      recommendations.push('Considere consulta médica de rotina');
+      recommendations.push('🩺 Considere consulta médica de rotina');
+      recommendations.push('💊 Mantenha cuidados básicos de saúde');
+    }
+    
+    // Specific recommendations based on answers
+    if (answers.breathing === 'Sim') {
+      recommendations.push('🫁 Mantenha-se em posição confortável para respirar');
+    }
+    if (answers.medications !== 'Não tomo medicamentos') {
+      recommendations.push('💊 Leve lista de medicamentos na consulta');
     }
     
     return recommendations;
   };
 
-  const extractSymptomsFromConversation = (): string[] => {
-    const symptoms = [];
-    const userMessages = messages.filter(msg => msg.type === 'user').map(msg => msg.content.toLowerCase());
-    
-    const symptomKeywords = ['dor', 'febre', 'náusea', 'fadiga', 'ansiedade', 'tontura', 'vômito'];
-    
-    symptomKeywords.forEach(symptom => {
-      if (userMessages.some(msg => msg.includes(symptom))) {
-        symptoms.push(symptom);
-      }
-    });
-    
-    return symptoms;
-  };
-
   const renderQuickOptions = () => {
-    if (useStructuredMode && currentQuestionIndex < structuredQuestions.length) {
+    if (!questionStarted) {
+      return (
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" variant="outline" onClick={() => {
+            setInputValue('Sim, vamos começar');
+            setTimeout(() => handleSendMessage(), 100);
+          }}>
+            Sim, vamos começar
+          </Button>
+        </div>
+      );
+    }
+
+    if (isStructuredPhase && currentQuestionIndex >= 0 && currentQuestionIndex < structuredQuestions.length) {
       const currentQuestion = structuredQuestions[currentQuestionIndex];
       
       if (currentQuestion.type === 'yes_no') {
@@ -386,7 +404,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
                   setInputValue(option);
                   setTimeout(() => handleSendMessage(), 100);
                 }}
-                className="text-xs"
+                className="text-xs h-auto py-2 px-3 whitespace-normal"
               >
                 {option}
               </Button>
@@ -416,49 +434,85 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
         );
       }
     }
+
+    if (!isStructuredPhase && !isFreeConversationPhase) {
+      return (
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" variant="outline" onClick={startFreeConversation}>
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Conversar mais
+          </Button>
+          <Button size="sm" onClick={completeAnalysis}>
+            <ArrowRight className="h-4 w-4 mr-1" />
+            Gerar Análise
+          </Button>
+        </div>
+      );
+    }
+
+    if (isFreeConversationPhase) {
+      return (
+        <div className="flex gap-2 mb-2">
+          <Button size="sm" onClick={completeAnalysis}>
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Finalizar e Analisar
+          </Button>
+        </div>
+      );
+    }
     
     return null;
   };
 
+  const getProgress = () => {
+    if (!questionStarted) return 0;
+    if (currentQuestionIndex < 0) return 0;
+    return ((currentQuestionIndex + 1) / structuredQuestions.length) * 100;
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Mode Toggle */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="mode-switch" className="text-sm">
-                Modo Estruturado
-              </Label>
-              <Switch
-                id="mode-switch"
-                checked={useStructuredMode}
-                onCheckedChange={setUseStructuredMode}
-                disabled={messages.length > 1}
-              />
+      {/* Progress Indicator */}
+      {questionStarted && isStructuredPhase && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Questionário Estruturado
+              </CardTitle>
+              <Badge variant="outline">
+                {currentQuestionIndex + 1}/10
+              </Badge>
             </div>
-            <div className="flex gap-2">
-              {!useStructuredMode && messages.length > 1 && (
-                <Button size="sm" variant="outline" onClick={switchToStructuredMode}>
-                  <ClipboardList className="h-4 w-4 mr-1" />
-                  Perguntas Dirigidas
-                </Button>
-              )}
-              {!useStructuredMode && messages.length >= 6 && (
-                <Button size="sm" onClick={completeConversationAnalysis}>
-                  <MessageCircle className="h-4 w-4 mr-1" />
-                  Analisar Conversa
-                </Button>
+            <Progress value={getProgress()} className="h-2" />
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Phase Indicator */}
+      {!isStructuredPhase && !isComplete && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>Questionário estruturado concluído</span>
+              {isFreeConversationPhase && (
+                <>
+                  <span>•</span>
+                  <MessageCircle className="h-4 w-4 text-blue-500" />
+                  <span>Conversação livre ativa</span>
+                </>
               )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chat Messages */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea ref={scrollAreaRef} className="h-80 p-4">
+          <ScrollArea ref={scrollAreaRef} className="h-96 p-4">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -488,7 +542,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
                       : 'bg-muted text-muted-foreground'
                     }
                   `}>
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-sm whitespace-pre-line">{message.content}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs opacity-70">
                         {message.timestamp.toLocaleTimeString()}
@@ -532,7 +586,11 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Digite sua resposta..."
+                placeholder={
+                  isStructuredPhase 
+                    ? "Digite sua resposta ou use os botões acima..." 
+                    : "Digite sua mensagem..."
+                }
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 disabled={isLoading}
                 className="flex-1"
@@ -547,10 +605,10 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
             </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              {useStructuredMode 
-                ? `Pergunta ${currentQuestionIndex + 1} de ${structuredQuestions.length}`
-                : 'Converse livremente sobre seus sintomas'
-              }
+              {!questionStarted && 'Confirme para iniciar o questionário estruturado'}
+              {questionStarted && isStructuredPhase && `Responda uma pergunta por vez • ${currentQuestionIndex + 1}/10`}
+              {isFreeConversationPhase && 'Conversação livre ativa • Pode finalizar a qualquer momento'}
+              {!isStructuredPhase && !isFreeConversationPhase && 'Escolha como prosseguir com sua consulta'}
             </p>
           </CardContent>
         </Card>
