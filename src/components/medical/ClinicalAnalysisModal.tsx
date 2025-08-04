@@ -290,24 +290,34 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
               </Card>
             </div>
 
-            <div className="text-center">
+            <div className="flex gap-3 justify-center">
               <Button 
                 onClick={generateClinicalAnalysis}
                 disabled={isAnalyzing}
                 size="lg"
+                className="flex-1 max-w-48"
               >
-                {isAnalyzing ? 'Analisando...' : 'Gerar Relatório'}
+                {isAnalyzing ? 'Analisando...' : 'Ver Relatório'}
               </Button>
               
-              {isAnalyzing && (
-                <div className="mt-4">
-                  <Progress value={66} className="w-full" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Consolidando dados e gerando relatório clínico...
-                  </p>
-                </div>
-              )}
+              <Button 
+                onClick={onClose}
+                variant="outline"
+                size="lg"
+                className="flex-1 max-w-48"
+              >
+                Finalizar
+              </Button>
             </div>
+            
+            {isAnalyzing && (
+              <div className="mt-4">
+                <Progress value={66} className="w-full" />
+                <p className="text-sm text-muted-foreground mt-2 text-center">
+                  Consolidando dados e gerando relatório clínico...
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
@@ -421,13 +431,14 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
               </CardContent>
             </Card>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
+              <Button onClick={onClose} className="flex-1">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Finalizar Análise
+              </Button>
               <Button onClick={generatePDFReport} variant="outline" className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
                 Baixar PDF
-              </Button>
-              <Button onClick={onClose} className="flex-1">
-                Visualizar Relatório
               </Button>
             </div>
           </div>

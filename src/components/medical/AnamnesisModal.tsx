@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, MessageCircle, ClipboardList, ArrowRight } from "lucide-react";
-import EnhancedAnamnesisChat from "./EnhancedAnamnesisChat";
+import StructuredAnamnesis from "./StructuredAnamnesis";
 
 interface AnamnesisModalProps {
   isOpen: boolean;
@@ -39,8 +39,8 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
             <Brain className="h-5 w-5 text-primary" />
             Anamnese Inteligente
             <Badge variant="outline" className="ml-2">
-              <MessageCircle className="h-3 w-3 mr-1" />
-              IA Conversacional
+              <ClipboardList className="h-3 w-3 mr-1" />
+              Questionário Estruturado
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -97,11 +97,10 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
             </div>
           )}
 
-          {/* Chat Interface */}
+          {/* Anamnese Estruturada */}
           {!analysisResult && (
-            <EnhancedAnamnesisChat 
-              onAnalysisComplete={handleAnalysisComplete}
-              className="h-full"
+            <StructuredAnamnesis 
+              onComplete={handleAnalysisComplete}
             />
           )}
         </div>
