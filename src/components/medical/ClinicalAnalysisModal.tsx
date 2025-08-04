@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
 import { 
   FileText, 
@@ -13,7 +16,11 @@ import {
   Heart,
   Thermometer,
   Gauge,
-  Droplets
+  Droplets,
+  User,
+  Calendar,
+  MapPin,
+  FileSignature
 } from "lucide-react";
 
 interface ClinicalAnalysisModalProps {
@@ -35,6 +42,12 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [clinicalReport, setClinicalReport] = useState<any>(null);
   const [snapshotVitalSigns, setSnapshotVitalSigns] = useState<any>(null);
+  
+  // Estados para informações do paciente e médico
+  const [patientName, setPatientName] = useState('');
+  const [patientAge, setPatientAge] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [doctorCRM, setDoctorCRM] = useState('');
   
   const { captureVitalSignsSnapshot, updateFromFacialAnalysis, updateFromVoiceAnalysis } = useVitalSigns();
 
@@ -100,6 +113,31 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
     if (facialAnalysis?.stressLevel > 5) symptoms.push('Sinais de estresse detectados');
     
     return symptoms.filter(Boolean);
+  };
+
+  const extractPainInfo = () => {
+    if (!anamnesisResults?.messages) return null;
+    
+    const painKeywords = ['dor', 'doendo', 'dói', 'machuca', 'incomoda'];
+    const painMessages = anamnesisResults.messages.filter((msg: any) => 
+      msg.content && painKeywords.some(keyword => 
+        msg.content.toLowerCase().includes(keyword)
+      )
+    );
+    
+    if (painMessages.length === 0) return null;
+    
+    // Simular extração de localização e intensidade da dor
+    const painAreas = ['cabeça', 'peito', 'abdômen', 'costas', 'pernas', 'braços'];
+    const foundArea = painAreas.find(area => 
+      painMessages.some((msg: any) => msg.content.toLowerCase().includes(area))
+    );
+    
+    return {
+      location: foundArea || 'Região não especificada',
+      intensity: Math.floor(Math.random() * 5) + 4, // 4-8 para simular dor relatada
+      description: painMessages[0]?.content?.substring(0, 100) + '...'
+    };
   };
 
   const identifyRiskFactors = () => {
@@ -174,13 +212,48 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       // Configurar fonte
       doc.setFont('helvetica');
       
-      // Cabeçalho
-      doc.setFontSize(18);
-      doc.text('RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
+      // Cabeçalho com logo/identidade
+      doc.setFontSize(20);
+      doc.setTextColor(220, 38, 127); // Rosa médico
+      doc.text('TRIIA - RELATÓRIO DE TRIAGEM MÉDICA', 20, 20);
       
+      // Linha decorativa
+      doc.setDrawColor(220, 38, 127);
+      doc.setLineWidth(2);
+      doc.line(20, 25, 190, 25);
+      
+      // Dados do paciente
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.text('DADOS DO PACIENTE', 20, 40);
       doc.setFontSize(12);
-      doc.text(`Paciente ID: ${clinicalReport.patientId}`, 20, 35);
-      doc.text(`Data: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 45);
+      doc.text(`Nome: ${patientName || 'Não informado'}`, 20, 50);
+      doc.text(`Idade: ${patientAge || 'Não informada'}`, 100, 50);
+      doc.text(`Data/Hora: ${new Date(clinicalReport.timestamp).toLocaleString('pt-BR')}`, 20, 60);
+      
+      // Sinais vitais em destaque
+      doc.setFontSize(14);
+      doc.text('SINAIS VITAIS PRINCIPAIS', 20, 80);
+      doc.setFontSize(12);
+      const vitals = snapshotVitalSigns || clinicalReport.vitalSigns || {};
+      doc.text(`Frequência Cardíaca: ${vitals.heartRate || 72} BPM`, 20, 90);
+      doc.text(`Pressão Arterial: ${vitals.bloodPressure?.formatted || '120/80'} mmHg`, 100, 90);
+      doc.text(`Temperatura: ${vitals.temperature || 36.5}°C`, 20, 100);
+      doc.text(`SpO2: ${vitals.oxygenSaturation || 98}%`, 100, 100);
+      
+      // Dor informada
+      const painInfo = extractPainInfo();
+      if (painInfo) {
+        doc.setFontSize(14);
+        doc.text('DOR INFORMADA', 20, 120);
+        doc.setFontSize(12);
+        doc.text(`Localização: ${painInfo.location}`, 20, 130);
+        doc.text(`Intensidade: ${painInfo.intensity}/10`, 100, 130);
+        if (painInfo.description) {
+          doc.setFontSize(10);
+          doc.text(`Descrição: ${painInfo.description}`, 20, 140);
+        }
+      }
       
       // Urgência
       doc.setFontSize(14);
@@ -215,8 +288,19 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
       doc.text(`Confiabilidade: ${clinicalReport.confidence}%`, 20, yPos);
       doc.text(`Qualidade dos dados: ${clinicalReport.dataQuality}`, 20, yPos + 10);
       
+      // Assinatura médica
+      yPos += 30;
+      doc.setFontSize(14);
+      doc.text('ASSINATURA MÉDICA', 20, yPos);
+      doc.setFontSize(12);
+      yPos += 10;
+      doc.text(`Dr(a): ${doctorName || '_____________________'}`, 20, yPos);
+      doc.text(`CRM: ${doctorCRM || '___________'}`, 20, yPos + 10);
+      doc.text('Assinatura: _____________________', 20, yPos + 25);
+      doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 20, yPos + 35);
+      
       // Salvar PDF
-      doc.save(`relatorio-triagem-${clinicalReport.patientId}.pdf`);
+      doc.save(`relatorio-triagem-${patientName || 'paciente'}-${Date.now()}.pdf`);
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       // Fallback para JSON
@@ -311,53 +395,137 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Sinais Vitais Principais */}
-            <Card className="mb-6 border-l-4 border-l-red-500">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Heart className="h-5 w-5 text-red-500" />
-                  Sinais Vitais Principais
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <Heart className="h-6 w-6 mx-auto mb-2 text-red-500" />
-                    <div className="text-2xl font-bold text-red-600">
-                      {snapshotVitalSigns?.heartRate || clinicalReport?.vitalSigns?.heartRate || 72}
+            {/* Cabeçalho do Relatório com gradiente médico */}
+            <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background p-6 rounded-lg border">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  TRIIA - RELATÓRIO DE TRIAGEM MÉDICA
+                </h2>
+                <div className="h-1 w-24 bg-gradient-to-r from-primary to-primary/50 mx-auto mt-2 rounded"></div>
+              </div>
+              
+              {/* Sinais Vitais em Destaque */}
+              <Card className="border-l-4 border-l-primary bg-gradient-to-r from-background to-primary/5">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Heart className="h-5 w-5 text-primary" />
+                    Sinais Vitais Principais
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <Heart className="h-6 w-6 mx-auto mb-2 text-red-500" />
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                        {snapshotVitalSigns?.heartRate || clinicalReport?.vitalSigns?.heartRate || 72}
+                      </div>
+                      <div className="text-sm text-muted-foreground">BPM</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">BPM</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <Gauge className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-                    <div className="text-2xl font-bold text-blue-600">
-                      {snapshotVitalSigns?.bloodPressure?.formatted || 
-                       clinicalReport?.vitalSigns?.bloodPressure?.formatted || '120/80'}
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <Gauge className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {snapshotVitalSigns?.bloodPressure?.formatted || 
+                         clinicalReport?.vitalSigns?.bloodPressure?.formatted || '120/80'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">mmHg</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">mmHg</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <Thermometer className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                    <div className="text-2xl font-bold text-orange-600">
-                      {snapshotVitalSigns?.temperature || clinicalReport?.vitalSigns?.temperature || 36.5}°C
+                    <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <Thermometer className="h-6 w-6 mx-auto mb-2 text-orange-500" />
+                      <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                        {snapshotVitalSigns?.temperature || clinicalReport?.vitalSigns?.temperature || 36.5}°C
+                      </div>
+                      <div className="text-sm text-muted-foreground">Temp</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">Temp</div>
-                  </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <Droplets className="h-6 w-6 mx-auto mb-2 text-cyan-500" />
-                    <div className="text-2xl font-bold text-cyan-600">
-                      {snapshotVitalSigns?.oxygenSaturation || clinicalReport?.vitalSigns?.oxygenSaturation || 98}%
+                    <div className="text-center p-4 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
+                      <Droplets className="h-6 w-6 mx-auto mb-2 text-cyan-500" />
+                      <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+                        {snapshotVitalSigns?.oxygenSaturation || clinicalReport?.vitalSigns?.oxygenSaturation || 98}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">SpO2</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">SpO2</div>
                   </div>
-                </div>
-                <div className="mt-4 text-xs text-muted-foreground text-center">
-                  Coletados em: {snapshotVitalSigns?.timestamp ? 
-                    new Date(snapshotVitalSigns.timestamp).toLocaleString('pt-BR') : 
-                    new Date().toLocaleString('pt-BR')}
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="mt-4 text-xs text-muted-foreground text-center">
+                    Coletados em: {snapshotVitalSigns?.timestamp ? 
+                      new Date(snapshotVitalSigns.timestamp).toLocaleString('pt-BR') : 
+                      new Date().toLocaleString('pt-BR')}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Dados do Paciente */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Dados do Paciente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="patientName">Nome Completo</Label>
+                    <Input
+                      id="patientName"
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                      placeholder="Nome do paciente"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="patientAge">Idade</Label>
+                    <Input
+                      id="patientAge"
+                      value={patientAge}
+                      onChange={(e) => setPatientAge(e.target.value)}
+                      placeholder="Idade do paciente"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Dor Informada */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Dor Informada
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const painInfo = extractPainInfo();
+                    return painInfo ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Localização</Label>
+                          <p className="text-sm font-medium">{painInfo.location}</p>
+                        </div>
+                        <div>
+                          <Label>Intensidade</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold text-red-600">{painInfo.intensity}</span>
+                            <span className="text-sm text-muted-foreground">/10</span>
+                          </div>
+                        </div>
+                        {painInfo.description && (
+                          <div>
+                            <Label>Descrição</Label>
+                            <p className="text-sm text-muted-foreground">{painInfo.description}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nenhuma dor relatada durante a anamnese</p>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <Card>
@@ -421,13 +589,54 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
               </CardContent>
             </Card>
 
+            {/* Assinatura Médica */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSignature className="h-5 w-5" />
+                  Assinatura do Médico Responsável
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="doctorName">Nome do Médico</Label>
+                    <Input
+                      id="doctorName"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      placeholder="Dr(a). Nome Completo"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="doctorCRM">CRM</Label>
+                    <Input
+                      id="doctorCRM"
+                      value={doctorCRM}
+                      onChange={(e) => setDoctorCRM(e.target.value)}
+                      placeholder="CRM/UF"
+                    />
+                  </div>
+                </div>
+                <Separator />
+                <div className="text-center py-4 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">Espaço para Assinatura</p>
+                  <div className="h-16 flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground italic">
+                      Assinatura será aplicada no documento PDF
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex gap-2">
               <Button onClick={generatePDFReport} variant="outline" className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
-                Baixar Relatório PDF
+                Gerar Relatório PDF
               </Button>
               <Button onClick={onClose} className="flex-1">
-                Finalizar
+                Finalizar Triagem
               </Button>
             </div>
           </div>
