@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mic, Square, Play, Pause, MessageCircle } from "lucide-react";
+import { Mic, Square, Play, Pause } from "lucide-react";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
-import VoiceMedicalChat from "./VoiceMedicalChat";
 
 interface VoiceAnalysisModalProps {
   isOpen: boolean;
@@ -18,8 +17,6 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
   const [recordingTime, setRecordingTime] = useState(0);
   const [maxRecordingTime] = useState(60); // 60 segundos máximo
   const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [showMedicalChat, setShowMedicalChat] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<'recording' | 'analysis' | 'chat'>('recording');
   
   const {
     isRecording,
@@ -61,37 +58,16 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
     try {
       const result = await analyzeVoice();
       setAnalysisResult(result);
-      setCurrentPhase('analysis');
     } catch (err) {
       console.error('Erro na análise:', err);
     }
   };
 
-  const handleStartMedicalChat = () => {
-    setShowMedicalChat(true);
-    setCurrentPhase('chat');
-  };
-
-  const handleMedicalChatComplete = (combinedData: any) => {
-    // Combinar dados de análise técnica + chat médico
-    const finalResult = {
-      ...analysisResult,
-      medicalChat: combinedData.medicalChat,
-      combinedInsights: combinedData.combinedInsights,
-      completedPhases: ['recording', 'analysis', 'chat']
-    };
-    
-    onComplete(finalResult);
-    onClose();
-  };
-
-  const handleSkipChat = () => {
-    // Permitir pular o chat médico se o usuário quiser
-    onComplete({
-      ...analysisResult,
-      completedPhases: ['recording', 'analysis']
-    });
-    onClose();
+  const handleComplete = () => {
+    if (analysisResult) {
+      onComplete(analysisResult);
+      onClose();
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -102,29 +78,16 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={showMedicalChat ? "sm:max-w-[700px]" : "sm:max-w-[500px]"}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {showMedicalChat ? (
-              <MessageCircle className="h-5 w-5 text-primary" />
-            ) : (
-              <Mic className="h-5 w-5 text-primary" />
-            )}
-            {showMedicalChat ? 'Chat Médico Contextual' : 'Análise de Voz'}
-            <div className="ml-auto text-sm text-muted-foreground">
-              Fase {currentPhase === 'recording' ? '1' : currentPhase === 'analysis' ? '1' : '2'}/2
-            </div>
+            <Mic className="h-5 w-5 text-primary" />
+            Análise de Voz
           </DialogTitle>
         </DialogHeader>
 
-        {showMedicalChat ? (
-          <VoiceMedicalChat 
-            voiceAnalysis={analysisResult} 
-            onComplete={handleMedicalChatComplete}
-          />
-        ) : (
-          <div className="space-y-6 py-4">
-            {/* Status e Timer */}
+        <div className="space-y-6 py-4">
+          {/* Status e Timer */}
           <div className="text-center space-y-4">
             <div className={`
               p-8 rounded-full mx-auto w-32 h-32 flex items-center justify-center
@@ -182,28 +145,12 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             </div>
           )}
 
-          {/* Botões de Ação - Fase 2 */}
-          {analysisResult && currentPhase === 'analysis' && (
-            <div className="space-y-3">
-              <div className="text-center">
-                <Button onClick={handleStartMedicalChat} size="lg" className="w-full">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Continuar com Chat Médico
-                </Button>
-              </div>
-              <div className="text-center">
-                <Button 
-                  onClick={handleSkipChat} 
-                  variant="outline" 
-                  size="sm"
-                  className="text-xs"
-                >
-                  Pular Chat e Concluir
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground text-center">
-                O chat médico fará perguntas contextuais baseadas na análise de voz para dados mais precisos
-              </div>
+          {/* Botão de Conclusão - Posicionado para fácil acesso */}
+          {analysisResult && (
+            <div className="text-center">
+              <Button onClick={handleComplete} size="lg" className="w-full">
+                Concluir Análise
+              </Button>
             </div>
           )}
 
@@ -284,13 +231,12 @@ const VoiceAnalysisModal = ({ isOpen, onClose, onComplete }: VoiceAnalysisModalP
             </div>
           )}
 
-            {/* Instruções */}
-            <div className="text-xs text-muted-foreground text-center">
-              Fale naturalmente sobre como você está se sentindo. 
-              A IA analisará padrões de voz, respiração e emoção.
-            </div>
+          {/* Instruções */}
+          <div className="text-xs text-muted-foreground text-center">
+            Fale naturalmente sobre como você está se sentindo. 
+            A IA analisará padrões de voz, respiração e emoção.
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
