@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Bot, User, Send, ClipboardList, ArrowRight } from 'lucide-react';
+import { Bot, User, ClipboardList, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
@@ -43,7 +43,6 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     }
   ]);
   
-  const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1); // -1 = não iniciado
   const [structuredAnswers, setStructuredAnswers] = useState<Record<string, any>>({});
@@ -144,24 +143,18 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
     setMessages(prev => [...prev, newMessage]);
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage = inputValue.trim();
-    setInputValue('');
-    addMessage(userMessage, 'user');
-
-    // Verificar se é o início das perguntas
-    if (!questionStarted && (userMessage.toLowerCase().includes('sim') || 
-        userMessage.toLowerCase().includes('pronto') || 
-        userMessage.toLowerCase().includes('começar') ||
-        userMessage.toLowerCase().includes('vamos'))) {
+  const handleQuestionResponse = (response: string) => {
+    if (isLoading) return;
+    
+    addMessage(response, 'user');
+    
+    if (!questionStarted) {
       startStructuredQuestions();
       return;
     }
 
     if (isStructuredPhase && currentQuestionIndex >= 0) {
-      handleStructuredResponse(userMessage);
+      handleStructuredResponse(response);
     }
   };
 
@@ -308,8 +301,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
       return (
         <div className="flex gap-2 mb-2">
           <Button size="sm" variant="outline" onClick={() => {
-            setInputValue('Sim, vamos começar');
-            setTimeout(() => handleSendMessage(), 100);
+            handleQuestionResponse('Sim, vamos começar');
           }}>
             Sim, vamos começar
           </Button>
@@ -328,8 +320,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
               variant="outline" 
               onClick={() => {
                 if (!isLoading) {
-                  setInputValue('Sim');
-                  setTimeout(() => handleSendMessage(), 100);
+                  handleQuestionResponse('Sim');
                 }
               }}
               disabled={isLoading}
@@ -342,8 +333,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
               variant="outline" 
               onClick={() => {
                 if (!isLoading) {
-                  setInputValue('Não');
-                  setTimeout(() => handleSendMessage(), 100);
+                  handleQuestionResponse('Não');
                 }
               }}
               disabled={isLoading}
@@ -365,8 +355,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
                 variant="outline"
                 onClick={() => {
                   if (!isLoading) {
-                    setInputValue(option);
-                    setTimeout(() => handleSendMessage(), 100);
+                    handleQuestionResponse(option);
                   }
                 }}
                 disabled={isLoading}
@@ -394,8 +383,7 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
                   variant="outline"
                   onClick={() => {
                     if (!isLoading) {
-                      setInputValue(i.toString());
-                      setTimeout(() => handleSendMessage(), 100);
+                      handleQuestionResponse(i.toString());
                     }
                   }}
                   disabled={isLoading}
@@ -532,37 +520,15 @@ const EnhancedAnamnesisChat: React.FC<EnhancedAnamnesissChatProps> = ({
         </CardContent>
       </Card>
 
-      {/* Input Area */}
+      {/* Quick Options Area */}
       {!isComplete && (
         <Card>
           <CardContent className="p-4 space-y-3">
             {renderQuickOptions()}
             
-            <div className="flex gap-2">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={
-                  isStructuredPhase 
-                    ? "Digite sua resposta ou use os botões acima..." 
-                    : "Digite sua mensagem..."
-                }
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                disabled={isLoading}
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                size="sm"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-            
             <p className="text-xs text-muted-foreground text-center">
-              {!questionStarted && 'Confirme para iniciar o questionário estruturado'}
-              {questionStarted && isStructuredPhase && `Responda uma pergunta por vez • ${currentQuestionIndex + 1}/10`}
+              {!questionStarted && 'Clique no botão para iniciar o questionário estruturado'}
+              {questionStarted && isStructuredPhase && `Responda usando os botões • ${currentQuestionIndex + 1}/10`}
               {!isStructuredPhase && 'Clique em "Gerar Análise" para processar suas respostas'}
             </p>
           </CardContent>
