@@ -105,7 +105,13 @@ const TriageFlow = () => {
     // Progress to next step
     const stepIndex = steps.findIndex(s => s.id === stepId);
     if (stepIndex < steps.length - 1) {
-      setCurrentStep(steps[stepIndex + 1].id as TriageStep);
+      const nextStep = steps[stepIndex + 1].id as TriageStep;
+      setCurrentStep(nextStep);
+      
+      // Automatically open next modal
+      setTimeout(() => {
+        handleStartStep(nextStep);
+      }, 500); // Small delay for better UX
     }
   };
 
@@ -210,19 +216,28 @@ const TriageFlow = () => {
           <VoiceAnalysisModal 
             isOpen={showVoiceModal}
             onClose={() => setShowVoiceModal(false)}
-            onComplete={(result) => handleStepComplete("voice-analysis", result)}
+            onComplete={(result) => {
+              setShowVoiceModal(false);
+              handleStepComplete("voice-analysis", result);
+            }}
           />
           
           <FacialTelemetryModal 
             isOpen={showFacialModal}
             onClose={() => setShowFacialModal(false)}
-            onComplete={(result) => handleStepComplete("facial-analysis", result)}
+            onComplete={(result) => {
+              setShowFacialModal(false);
+              handleStepComplete("facial-analysis", result);
+            }}
           />
           
           <AnamnesisModal 
             isOpen={showAnamnesisModal}
             onClose={() => setShowAnamnesisModal(false)}
-            onComplete={(result) => handleStepComplete("anamnesis", result)}
+            onComplete={(result) => {
+              setShowAnamnesisModal(false);
+              handleStepComplete("anamnesis", result);
+            }}
           />
 
           <ClinicalAnalysisModal
