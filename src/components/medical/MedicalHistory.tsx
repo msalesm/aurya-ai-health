@@ -1,13 +1,24 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, ChevronDown, ChevronUp, Clock, AlertTriangle, Stethoscope, FileText } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { 
+  Calendar, 
+  ChevronDown, 
+  ChevronUp, 
+  AlertTriangle, 
+  Clock, 
+  FileText,
+  TrendingUp,
+  Heart,
+  Activity
+} from 'lucide-react';
 
 interface ConsultationHistory {
   id: string;
@@ -20,76 +31,53 @@ interface ConsultationHistory {
   assessment_score: number;
 }
 
-const MedicalHistory = () => {
+export const MedicalHistory = () => {
   const [consultations, setConsultations] = useState<ConsultationHistory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchMedicalHistory();
-  }, []);
+    if (user) {
+      fetchConsultationHistory();
+    }
+  }, [user]);
 
-  const fetchMedicalHistory = async () => {
+  const fetchConsultationHistory = async () => {
+    if (!user) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Faça login para ver seu histórico médico.",
-          variant: "destructive",
-        });
-        return;
-      }
-
+      setLoading(true);
       const { data, error } = await supabase.rpc('get_user_consultation_history', {
         user_uuid: user.id
       });
 
-      if (error) {
-        console.error('Erro ao buscar histórico:', error);
-        toast({
-          title: "Erro ao carregar histórico",
-          description: "Não foi possível carregar suas consultas anteriores.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
       setConsultations(data || []);
     } catch (error) {
-      console.error('Erro inesperado:', error);
+      console.error('Erro ao buscar histórico:', error);
       toast({
-        title: "Erro inesperado",
-        description: "Ocorreu um erro ao carregar os dados.",
+        title: "Erro ao carregar histórico",
+        description: "Não foi possível carregar o histórico de consultas.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
-
-  const toggleExpanded = (id: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedItems(newExpanded);
   };
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency?.toLowerCase()) {
       case 'alta':
-      case 'emergência':
+      case 'crítica':
         return 'destructive';
       case 'média':
       case 'moderada':
-        return 'default';
-      case 'baixa':
         return 'secondary';
+      case 'baixa':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -97,173 +85,178 @@ const MedicalHistory = () => {
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'concluída':
-      case 'finalizada':
+      case 'concluído':
+      case 'finalizado':
         return 'default';
       case 'em_andamento':
-      case 'ativa':
         return 'secondary';
-      case 'cancelada':
+      case 'cancelado':
         return 'destructive';
       default:
         return 'outline';
     }
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
-    } catch {
-      return "Data inválida";
+  const toggleExpanded = (id: string) => {
+    const newExpanded = new Set(expandedCards);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
     }
+    setExpandedCards(newExpanded);
   };
 
-  if (isLoading) {
+  if (!user) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-3 bg-muted rounded w-full"></div>
-                <div className="h-3 bg-muted rounded w-2/3 mt-2"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="text-center py-12">
+        <Heart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">Faça login para ver seu histórico</h3>
+        <p className="text-muted-foreground">
+          Acesse sua conta para visualizar o histórico de consultas médicas.
+        </p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader>
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-3 bg-muted rounded w-1/2"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="h-3 bg-muted rounded"></div>
+                <div className="h-3 bg-muted rounded w-2/3"></div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }
 
   if (consultations.length === 0) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <Card className="text-center py-12">
-          <CardContent>
-            <Stethoscope className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma consulta encontrada</h3>
-            <p className="text-muted-foreground mb-6">
-              Você ainda não realizou nenhuma consulta. Comece uma nova triagem para criar seu histórico médico.
-            </p>
-            <Button onClick={() => window.location.reload()}>
-              Atualizar página
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="text-center py-12">
+        <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">Nenhuma consulta encontrada</h3>
+        <p className="text-muted-foreground">
+          Suas consultas aparecerão aqui após serem realizadas.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Histórico Médico</h1>
-        <p className="text-muted-foreground">
-          Consulte suas {consultations.length} consultas anteriores e acompanhe sua evolução de saúde.
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Histórico Médico</h2>
+          <p className="text-muted-foreground">
+            {consultations.length} consulta{consultations.length !== 1 ? 's' : ''} registrada{consultations.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <Button onClick={fetchConsultationHistory} variant="outline" size="sm">
+          <TrendingUp className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
       </div>
 
       <div className="space-y-4">
         {consultations.map((consultation) => (
-          <Collapsible key={consultation.id}>
-            <Card className="transition-shadow hover:shadow-card">
+          <Card key={consultation.id} className="transition-all duration-200 hover:shadow-md">
+            <Collapsible
+              open={expandedCards.has(consultation.id)}
+              onOpenChange={() => toggleExpanded(consultation.id)}
+            >
               <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">
-                        {consultation.chief_complaint || "Consulta médica"}
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(consultation.created_at), "d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      </div>
+                      
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        {consultation.chief_complaint || 'Consulta médica'}
                       </CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDate(consultation.created_at)}</span>
-                        </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={getUrgencyColor(consultation.urgency_level)}>
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {consultation.urgency_level || 'Não informado'}
+                        </Badge>
+                        
+                        <Badge variant={getStatusColor(consultation.status)}>
+                          <Clock className="h-3 w-3 mr-1" />
+                          {consultation.status || 'Em andamento'}
+                        </Badge>
+
                         {consultation.assessment_score && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            <span>Score: {consultation.assessment_score}</span>
-                          </div>
+                          <Badge variant="outline">
+                            Score: {consultation.assessment_score}/10
+                          </Badge>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      {consultation.urgency_level && (
-                        <Badge variant={getUrgencyColor(consultation.urgency_level)}>
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {consultation.urgency_level}
-                        </Badge>
+
+                    <Button variant="ghost" size="sm" className="ml-4">
+                      {expandedCards.has(consultation.id) ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
                       )}
-                      <Badge variant={getStatusColor(consultation.status)}>
-                        {consultation.status?.replace('_', ' ')}
-                      </Badge>
-                      <Button variant="ghost" size="sm" className="p-1">
-                        {expandedItems.has(consultation.id) ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                      <span className="sr-only">
+                        {expandedCards.has(consultation.id) ? 'Ocultar detalhes' : 'Ver detalhes'}
+                      </span>
+                    </Button>
                   </div>
                 </CardHeader>
               </CollapsibleTrigger>
 
               <CollapsibleContent>
                 <CardContent className="pt-0">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {consultation.symptoms && consultation.symptoms.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Sintomas relatados
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {consultation.symptoms.map((symptom, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {symptom}
-                            </Badge>
-                          ))}
-                        </div>
+                  {consultation.symptoms && consultation.symptoms.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-medium mb-2">Sintomas relatados:</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {consultation.symptoms.map((symptom, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {symptom}
+                          </Badge>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {consultation.ai_diagnosis && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4" />
-                          Análise da IA
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {consultation.ai_diagnosis}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  {consultation.ai_diagnosis && (
+                    <div className="mb-4">
+                      <h4 className="font-medium mb-2">Análise IA:</h4>
+                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                        {consultation.ai_diagnosis}
+                      </p>
+                    </div>
+                  )}
 
-                  <div className="mt-4 pt-4 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        toast({
-                          title: "Funcionalidade em desenvolvimento",
-                          description: "Em breve você poderá visualizar relatórios detalhados.",
-                        });
-                      }}
-                    >
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button variant="outline" size="sm">
                       <FileText className="h-4 w-4 mr-2" />
                       Ver relatório completo
                     </Button>
                   </div>
                 </CardContent>
               </CollapsibleContent>
-            </Card>
-          </Collapsible>
+            </Collapsible>
+          </Card>
         ))}
       </div>
     </div>
