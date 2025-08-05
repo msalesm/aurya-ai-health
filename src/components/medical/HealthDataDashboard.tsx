@@ -17,46 +17,178 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 
 interface HealthData {
-  heart_rate?: any;
-  steps?: any;
-  sleep?: any;
-  blood_pressure?: any;
-  activity?: any;
-  stress?: any;
-  health_insights?: any;
+  heart_rate?: {
+    current: number;
+    average_7_days?: number;
+    resting_hr?: number;
+    trend?: string;
+  };
+  steps?: {
+    today: number;
+    goal: number;
+    average_7_days?: number;
+  };
+  sleep?: {
+    last_night: {
+      duration_hours: number;
+      quality_score: number;
+      efficiency: number;
+    };
+  };
+  blood_pressure?: {
+    last_reading: {
+      systolic: number;
+      diastolic: number;
+      category: string;
+    };
+    trend?: string;
+  };
+  activity?: {
+    calories_burned: number;
+    active_minutes: number;
+    intensity_distribution: {
+      light: number;
+      moderate: number;
+      vigorous: number;
+    };
+  };
+  stress?: {
+    current_level: string;
+    stress_score: number;
+    hrv_score?: number;
+  };
+  health_insights?: {
+    overall_score: number;
+    recommendations?: string[];
+    positive_trends?: string[];
+  };
 }
 
 const HealthDataDashboard = () => {
   const [healthData, setHealthData] = useState<HealthData>({});
   const [isLoading, setIsLoading] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchHealthData = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
+      console.log('Iniciando busca de dados de saúde...');
+      
       const response = await supabase.functions.invoke('google-health-data', {
         body: {
-          userId: 'demo-user', // Em produção seria o ID real do usuário
+          userId: 'demo-user',
           dataTypes: ['heart_rate', 'steps', 'sleep', 'blood_pressure', 'activity', 'stress']
         }
       });
 
-      if (response.data && !response.error) {
-        setHealthData(response.data.health_data);
-        setLastSync(response.data.last_sync);
+      console.log('Resposta da API:', response);
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erro na API');
+      }
+
+      if (response.data?.health_data) {
+        const data = response.data.health_data;
+        console.log('Dados recebidos:', data);
+        
+        // Validar estrutura dos dados antes de usar
+        const validatedData = validateHealthData(data);
+        setHealthData(validatedData);
+        setLastSync(response.data.last_sync || new Date().toISOString());
       } else {
-        console.error('Erro ao buscar dados:', response.error);
-        // Usar dados simulados como fallback
+        console.warn('Estrutura de dados inválida, usando fallback');
         setHealthData(getMockHealthData());
         setLastSync(new Date().toISOString());
+        setError('Dados incompletos recebidos');
       }
     } catch (error) {
       console.error('Erro na requisição:', error);
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
       setHealthData(getMockHealthData());
       setLastSync(new Date().toISOString());
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função para validar e sanitizar dados
+  const validateHealthData = (data: any): HealthData => {
+    const validated: HealthData = {};
+    
+    if (data.heart_rate?.current) {
+      validated.heart_rate = {
+        current: data.heart_rate.current,
+        average_7_days: data.heart_rate.average_7_days,
+        resting_hr: data.heart_rate.resting_hr,
+        trend: data.heart_rate.trend || 'stable'
+      };
+    }
+    
+    if (data.steps?.today) {
+      validated.steps = {
+        today: data.steps.today,
+        goal: data.steps.goal || 10000,
+        average_7_days: data.steps.average_7_days
+      };
+    }
+    
+    if (data.sleep?.last_night) {
+      validated.sleep = {
+        last_night: {
+          duration_hours: data.sleep.last_night.duration_hours || 0,
+          quality_score: data.sleep.last_night.quality_score || 0,
+          efficiency: data.sleep.last_night.efficiency || 0
+        }
+      };
+    }
+    
+    if (data.blood_pressure?.last_reading) {
+      validated.blood_pressure = {
+        last_reading: {
+          systolic: data.blood_pressure.last_reading.systolic || 0,
+          diastolic: data.blood_pressure.last_reading.diastolic || 0,
+          category: data.blood_pressure.last_reading.category || 'unknown'
+        },
+        trend: data.blood_pressure.trend || 'stable'
+      };
+    }
+    
+    if (data.activity) {
+      validated.activity = {
+        calories_burned: data.activity.calories_burned || 0,
+        active_minutes: data.activity.active_minutes || 0,
+        intensity_distribution: {
+          light: data.activity.intensity_distribution?.light || 0,
+          moderate: data.activity.intensity_distribution?.moderate || 0,
+          vigorous: data.activity.intensity_distribution?.vigorous || 0
+        }
+      };
+    }
+    
+    if (data.stress) {
+      validated.stress = {
+        current_level: data.stress.current_level || 'unknown',
+        stress_score: data.stress.stress_score || 0,
+        hrv_score: data.stress.hrv_score
+      };
+    }
+    
+    if (data.health_insights) {
+      validated.health_insights = {
+        overall_score: data.health_insights.overall_score || 0,
+        recommendations: Array.isArray(data.health_insights.recommendations) 
+          ? data.health_insights.recommendations 
+          : [],
+        positive_trends: Array.isArray(data.health_insights.positive_trends) 
+          ? data.health_insights.positive_trends 
+          : []
+      };
+    }
+    
+    return validated;
   };
 
   useEffect(() => {
@@ -85,6 +217,18 @@ const HealthDataDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Erro de sincronização */}
+      {error && (
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-sm">Erro na sincronização: {error}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header com botão de sincronização */}
       <div className="flex justify-between items-center">
         <div>
@@ -138,7 +282,7 @@ const HealthDataDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         
         {/* Frequência Cardíaca */}
-        {healthData.heart_rate && (
+        {healthData.heart_rate?.current && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -149,11 +293,11 @@ const HealthDataDashboard = () => {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">{healthData.heart_rate.current} bpm</span>
-                  {getTrendIcon(healthData.heart_rate.trend)}
+                  <span className="text-2xl font-bold">{healthData.heart_rate?.current || 0} bpm</span>
+                  {getTrendIcon(healthData.heart_rate?.trend || 'stable')}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Repouso: {healthData.heart_rate.resting_hr} bpm
+                  Repouso: {healthData.heart_rate?.resting_hr || 0} bpm
                 </div>
                 <Progress 
                   value={(healthData.heart_rate.current / 120) * 100} 
@@ -165,7 +309,7 @@ const HealthDataDashboard = () => {
         )}
 
         {/* Passos */}
-        {healthData.steps && (
+        {healthData.steps?.today && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -176,14 +320,14 @@ const HealthDataDashboard = () => {
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-bold">{healthData.steps.today.toLocaleString()}</span>
+                  <span className="text-2xl font-bold">{healthData.steps?.today?.toLocaleString() || '0'}</span>
                   <span className="text-xs text-muted-foreground">passos</span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Meta: {healthData.steps.goal.toLocaleString()}
+                  Meta: {healthData.steps?.goal?.toLocaleString() || '10,000'}
                 </div>
                 <Progress 
-                  value={(healthData.steps.today / healthData.steps.goal) * 100} 
+                  value={healthData.steps?.today && healthData.steps?.goal ? (healthData.steps.today / healthData.steps.goal) * 100 : 0} 
                   className="h-2"
                 />
               </div>

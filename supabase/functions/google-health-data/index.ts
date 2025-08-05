@@ -23,14 +23,18 @@ serve(async (req) => {
     // Em produção, integraria com Google Fitness API
     const healthData = await fetchMockGoogleFitData(userId, dataTypes);
 
+    const response = {
+      user_id: userId,
+      data_types: dataTypes,
+      health_data: healthData,
+      last_sync: new Date().toISOString(),
+      source: 'google_fit'
+    };
+
+    console.log('Sending health data response:', JSON.stringify(response, null, 2));
+
     return new Response(
-      JSON.stringify({
-        user_id: userId,
-        data_types: dataTypes,
-        health_data: healthData,
-        last_sync: new Date().toISOString(),
-        source: 'google_fit'
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
