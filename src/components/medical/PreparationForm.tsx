@@ -13,6 +13,7 @@ import {
   Calendar,
   Shield
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PreparationFormProps {
   onComplete: (userData: any) => void;
@@ -114,7 +115,7 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
   };
 
   return (
-    <Card className="shadow-card max-w-2xl mx-auto">
+    <Card className="shadow-card max-w-2xl mx-auto animate-fade-in">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <Shield className="h-6 w-6 text-primary" />
@@ -126,7 +127,7 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Informações do Usuário */}
-        <div className="space-y-4">
+        <div className="space-y-4 animate-slide-up">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <User className="h-5 w-5" />
             Informações Pessoais
@@ -162,7 +163,7 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
         </div>
 
         {/* Teste de Equipamentos */}
-        <div className="space-y-4">
+        <div className="space-y-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Verificação de Equipamentos
@@ -228,7 +229,7 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
         </div>
 
         {/* Aviso de Privacidade */}
-        <div className="p-4 bg-muted/50 border border-muted rounded-lg">
+        <div className="p-4 bg-muted/50 border border-muted rounded-lg animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="flex items-start gap-2">
             <Shield className="h-5 w-5 text-primary mt-0.5" />
             <div>
@@ -245,8 +246,12 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
         <Button 
           onClick={handleSubmit}
           disabled={!isFormValid}
-          className="w-full"
+          className={cn(
+            "w-full animate-slide-up transition-all duration-300",
+            isFormValid && "animate-pulse-glow"
+          )}
           size="lg"
+          style={{ animationDelay: '0.3s' }}
         >
           {isFormValid ? 'Iniciar Triagem Médica' : 'Complete as informações acima'}
         </Button>
