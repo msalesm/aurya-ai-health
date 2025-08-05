@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressStepper } from "@/components/ui/progress-stepper";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import { MobileNav, MobileNavItem } from "@/components/ui/mobile-nav";
+import { MobileTabsDemo } from "@/components/mobile/MobileTabsDemo";
 import TriageHeader from "@/components/medical/TriageHeader";
 import VitalSignsCard from "@/components/medical/VitalSignsCard";
 import TriageFlow from "@/components/medical/TriageFlow";
@@ -207,6 +208,9 @@ const Index = () => {
 
           <TabsContent value="dados" className="space-y-6 animate-fade-in" role="tabpanel" tabIndex={0}>
             <HealthDataDashboard />
+            <div className="mt-6">
+              <MobileTabsDemo />
+            </div>
           </TabsContent>
 
           <TabsContent value="results" className="space-y-6 animate-fade-in" role="tabpanel" tabIndex={0}>
