@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mic, MicOff, Square, Play, Pause } from 'lucide-react';
+import { Mic, MicOff, Square, Play, Pause, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface VoiceRecorderProps {
   onAnalysisComplete?: (analysis: any) => void;
@@ -19,7 +21,9 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
+  const { requestMicrophonePermission, permissions } = usePermissions();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -36,6 +40,17 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
   const startRecording = async () => {
     try {
+      setError(null);
+      
+      // Verificar e solicitar permissão primeiro
+      if (permissions.microphone !== 'granted') {
+        const hasPermission = await requestMicrophonePermission();
+        if (!hasPermission) {
+          setError('Permissão de microfone negada. Verifique as configurações do seu navegador/dispositivo.');
+          return;
+        }
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           sampleRate: 44100,
@@ -74,9 +89,19 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         setRecordingTime(prev => prev + 1);
       }, 1000);
 
-    } catch (error) {
-      console.error('Erro ao acessar microfone:', error);
-      alert('Erro ao acessar o microfone. Verifique as permissões.');
+    } catch (err: any) {
+      console.error('Erro ao acessar microfone:', err);
+      
+      let errorMessage = 'Erro ao acessar o microfone.';
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Permissão de microfone negada. Clique no ícone de microfone na barra de endereços para permitir.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'Nenhum microfone encontrado. Conecte um microfone e tente novamente.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Microfone está sendo usado por outro aplicativo. Feche outros programas e tente novamente.';
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -191,6 +216,13 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Exibir erros */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {/* Timer de gravação */}
         <div className="text-center">
           <div className="text-2xl font-mono font-bold text-primary">

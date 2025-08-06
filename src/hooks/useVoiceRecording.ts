@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { usePermissions } from './usePermissions';
 
 interface VoiceRecordingHook {
   isRecording: boolean;
@@ -16,12 +17,21 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
   const [audioData, setAudioData] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  const { requestMicrophonePermission, permissions } = usePermissions();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      
+      // Verificar e solicitar permissão primeiro
+      if (permissions.microphone !== 'granted') {
+        const hasPermission = await requestMicrophonePermission();
+        if (!hasPermission) {
+          throw new Error('Permissão de microfone negada. Verifique as configurações do seu navegador/dispositivo.');
+        }
+      }
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -56,8 +66,20 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
       mediaRecorderRef.current.start(100); // Capturar dados a cada 100ms
       setIsRecording(true);
 
-    } catch (err) {
-      setError('Erro ao acessar o microfone. Verifique as permissões.');
+    } catch (err: any) {
+      let errorMessage = 'Erro ao acessar o microfone.';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Permissão de microfone negada. Clique no ícone de microfone na barra de endereços para permitir.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'Nenhum microfone encontrado. Conecte um microfone e tente novamente.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Microfone está sendo usado por outro aplicativo. Feche outros programas e tente novamente.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       console.error('Erro ao iniciar gravação:', err);
     }
   }, []);

@@ -11,9 +11,11 @@ import {
   AlertTriangle, 
   User,
   Calendar,
-  Shield
+  Shield,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface PreparationFormProps {
   onComplete: (userData: any) => void;
@@ -34,7 +36,14 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
     cameraStatus: 'checking'
   });
   const [isFormValid, setIsFormValid] = useState(false);
-  const [isTestingDevices, setIsTestingDevices] = useState(false);
+  
+  const { 
+    permissions, 
+    requestAllPermissions, 
+    requestMicrophonePermission, 
+    requestCameraPermission,
+    isNative 
+  } = usePermissions();
 
   useEffect(() => {
     // Executar teste automático na montagem
@@ -53,29 +62,24 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
   }, [userData]);
 
   const testDevices = async () => {
-    setIsTestingDevices(true);
+    setUserData(prev => ({ ...prev, microphoneStatus: 'checking', cameraStatus: 'checking' }));
     
-    // Testar microfone
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setUserData(prev => ({ ...prev, microphoneStatus: 'working' }));
-      stream.getTracks().forEach(track => track.stop());
+      const results = await requestAllPermissions();
+      
+      setUserData(prev => ({ 
+        ...prev, 
+        microphoneStatus: results.microphone ? 'working' : 'error',
+        cameraStatus: results.camera ? 'working' : 'error'
+      }));
     } catch (error) {
-      console.error('Erro ao acessar microfone:', error);
-      setUserData(prev => ({ ...prev, microphoneStatus: 'error' }));
+      console.error('Erro ao testar dispositivos:', error);
+      setUserData(prev => ({ 
+        ...prev, 
+        microphoneStatus: 'error',
+        cameraStatus: 'error'
+      }));
     }
-
-    // Testar câmera
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setUserData(prev => ({ ...prev, cameraStatus: 'working' }));
-      stream.getTracks().forEach(track => track.stop());
-    } catch (error) {
-      console.error('Erro ao acessar câmera:', error);
-      setUserData(prev => ({ ...prev, cameraStatus: 'error' }));
-    }
-
-    setIsTestingDevices(false);
   };
 
   const handleSubmit = () => {
@@ -202,28 +206,69 @@ const PreparationForm = ({ onComplete }: PreparationFormProps) => {
           {(userData.microphoneStatus === 'checking' || userData.cameraStatus === 'checking') && (
             <Button 
               onClick={testDevices} 
-              disabled={isTestingDevices}
+              disabled={permissions.microphone === 'checking' || permissions.camera === 'checking'}
               variant="outline"
               className="w-full"
             >
-              {isTestingDevices ? 'Testando Equipamentos...' : 'Testar Equipamentos'}
+              <RefreshCw className={cn("h-4 w-4 mr-2", (permissions.microphone === 'checking' || permissions.camera === 'checking') && "animate-spin")} />
+              {(permissions.microphone === 'checking' || permissions.camera === 'checking') ? 'Testando Equipamentos...' : 'Testar Equipamentos'}
             </Button>
           )}
 
           {(userData.microphoneStatus === 'error' || userData.cameraStatus === 'error') && (
             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-destructive">
-                ⚠️ Alguns equipamentos não funcionaram corretamente. 
-                Verifique as permissões do navegador e tente novamente.
-              </p>
-              <Button 
-                onClick={testDevices} 
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                Testar Novamente
-              </Button>
+              <div className="space-y-3">
+                <p className="text-sm text-destructive">
+                  ⚠️ Alguns equipamentos não funcionaram corretamente.
+                </p>
+                
+                {isNative ? (
+                  <p className="text-xs text-muted-foreground">
+                    Certifique-se de que o aplicativo tem permissão para acessar câmera e microfone nas configurações do dispositivo.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Clique no ícone de câmera/microfone na barra de endereços e permita o acesso. 
+                    Se bloqueou anteriormente, pode ser necessário atualizar a página.
+                  </p>
+                )}
+                
+                <div className="flex gap-2">
+                  {userData.microphoneStatus === 'error' && (
+                    <Button 
+                      onClick={requestMicrophonePermission}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Mic className="h-3 w-3 mr-1" />
+                      Microfone
+                    </Button>
+                  )}
+                  
+                  {userData.cameraStatus === 'error' && (
+                    <Button 
+                      onClick={requestCameraPermission}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Video className="h-3 w-3 mr-1" />
+                      Câmera
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    onClick={testDevices} 
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Testar Novamente
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
