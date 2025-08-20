@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -185,6 +185,111 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_cache: {
+        Row: {
+          cache_data: Json
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          cache_data: Json
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          id?: string
+        }
+        Update: {
+          cache_data?: Json
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      appointments: {
+        Row: {
+          created_at: string
+          doctor_profile_id: string | null
+          doctor_user_id: string
+          id: string
+          location: Json | null
+          modality: string
+          patient_id: string
+          price_cents: number | null
+          scheduled_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_profile_id?: string | null
+          doctor_user_id: string
+          id?: string
+          location?: Json | null
+          modality: string
+          patient_id: string
+          price_cents?: number | null
+          scheduled_at: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_profile_id?: string | null
+          doctor_user_id?: string
+          id?: string
+          location?: Json | null
+          modality?: string
+          patient_id?: string
+          price_cents?: number | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: unknown | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       behavioral_patterns: {
         Row: {
           confidence: number
@@ -351,6 +456,42 @@ export type Database = {
           },
         ]
       }
+      consultations: {
+        Row: {
+          created_at: string
+          id: string
+          language: string
+          patient_name: string | null
+          structured_ciphertext: string
+          structured_iv: string
+          transcript_ciphertext: string
+          transcript_iv: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          language: string
+          patient_name?: string | null
+          structured_ciphertext: string
+          structured_iv: string
+          transcript_ciphertext: string
+          transcript_iv: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          language?: string
+          patient_name?: string | null
+          structured_ciphertext?: string
+          structured_iv?: string
+          transcript_ciphertext?: string
+          transcript_iv?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           clothing_item_id: string | null
@@ -465,6 +606,57 @@ export type Database = {
           completed_at?: string
           id?: string
           stars_earned?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      doctor_profiles: {
+        Row: {
+          address: Json | null
+          approved: boolean
+          bio: string | null
+          created_at: string
+          crm: string
+          id: string
+          is_online: boolean
+          modalities: string[]
+          photo_url: string | null
+          price_cents: number
+          rating_avg: number
+          specialty: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: Json | null
+          approved?: boolean
+          bio?: string | null
+          created_at?: string
+          crm: string
+          id?: string
+          is_online?: boolean
+          modalities?: string[]
+          photo_url?: string | null
+          price_cents?: number
+          rating_avg?: number
+          specialty: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: Json | null
+          approved?: boolean
+          bio?: string | null
+          created_at?: string
+          crm?: string
+          id?: string
+          is_online?: boolean
+          modalities?: string[]
+          photo_url?: string | null
+          price_cents?: number
+          rating_avg?: number
+          specialty?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -760,6 +952,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      life_goals: {
+        Row: {
+          created_at: string
+          emotional: string | null
+          finance: string | null
+          health: string | null
+          id: string
+          spiritual: string | null
+          travel: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emotional?: string | null
+          finance?: string | null
+          health?: string | null
+          id?: string
+          spiritual?: string | null
+          travel?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emotional?: string | null
+          finance?: string | null
+          health?: string | null
+          id?: string
+          spiritual?: string | null
+          travel?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      life_map_entries: {
+        Row: {
+          category: string | null
+          created_at: string
+          date: string
+          decision_type: string | null
+          description: string | null
+          id: string
+          is_simulation: boolean
+          kind: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          date: string
+          decision_type?: string | null
+          description?: string | null
+          id?: string
+          is_simulation?: boolean
+          kind: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          date?: string
+          decision_type?: string | null
+          description?: string | null
+          id?: string
+          is_simulation?: boolean
+          kind?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       location_visits: {
         Row: {
@@ -1248,6 +1518,30 @@ export type Database = {
         }
         Relationships: []
       }
+      system_health_logs: {
+        Row: {
+          id: string
+          metrics: Json
+          recorded_at: string
+          services: Json
+          status: string
+        }
+        Insert: {
+          id?: string
+          metrics: Json
+          recorded_at?: string
+          services: Json
+          status: string
+        }
+        Update: {
+          id?: string
+          metrics?: Json
+          recorded_at?: string
+          services?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       therapy_sessions: {
         Row: {
           ai_notes: Json | null
@@ -1544,16 +1838,21 @@ export type Database = {
           avatar_url: string | null
           city: string | null
           created_at: string
+          date_of_birth: string | null
+          email: string | null
           emergency_contact: Json | null
           id: string
           is_public: boolean | null
           lgpd_consent: boolean | null
           lgpd_consent_date: string | null
+          medical_history_summary: string | null
           medical_preferences: Json | null
           name: string
           phone: string | null
           privacy_settings: Json | null
           reputation_score: number | null
+          role: string | null
+          sex: string | null
           sign: string | null
           state: string | null
           total_purchases: number | null
@@ -1566,16 +1865,21 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
           emergency_contact?: Json | null
           id: string
           is_public?: boolean | null
           lgpd_consent?: boolean | null
           lgpd_consent_date?: string | null
+          medical_history_summary?: string | null
           medical_preferences?: Json | null
           name: string
           phone?: string | null
           privacy_settings?: Json | null
           reputation_score?: number | null
+          role?: string | null
+          sex?: string | null
           sign?: string | null
           state?: string | null
           total_purchases?: number | null
@@ -1588,16 +1892,21 @@ export type Database = {
           avatar_url?: string | null
           city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
           emergency_contact?: Json | null
           id?: string
           is_public?: boolean | null
           lgpd_consent?: boolean | null
           lgpd_consent_date?: string | null
+          medical_history_summary?: string | null
           medical_preferences?: Json | null
           name?: string
           phone?: string | null
           privacy_settings?: Json | null
           reputation_score?: number | null
+          role?: string | null
+          sex?: string | null
           sign?: string | null
           state?: string | null
           total_purchases?: number | null
@@ -1848,20 +2157,20 @@ export type Database = {
       get_user_consultation_history: {
         Args: { user_uuid: string }
         Returns: {
-          id: string
-          created_at: string
+          ai_diagnosis: string
+          assessment_score: number
           chief_complaint: string
+          created_at: string
+          id: string
+          status: string
           symptoms: string[]
           urgency_level: string
-          ai_diagnosis: string
-          status: string
-          assessment_score: number
         }[]
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
