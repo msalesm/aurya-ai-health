@@ -10,6 +10,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRPPG } from '@/hooks/useRPPG';
 import { RPPGVisualization } from './RPPGVisualization';
 import { useVitalSigns } from '@/hooks/useVitalSigns';
+import { FacialMaskOverlay } from './FacialMaskOverlay';
+import { CircularProgressTimer } from './CircularProgressTimer';
+import { RealtimeHeartDisplay } from './RealtimeHeartDisplay';
+import { EnhancedPPGWaveform } from './EnhancedPPGWaveform';
 
 interface FacialTelemetryModalProps {
   isOpen: boolean;
@@ -120,15 +124,15 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     
     let currentProgress = 0;
     progressIntervalRef.current = setInterval(() => {
-      currentProgress += 100 / 15; // 15 second analysis
+      currentProgress += 100 / 30; // 30 second analysis
       setProgress(Math.min(currentProgress, 100));
       
       if (currentProgress >= 100) {
         completeTelemetry();
       }
       
-      // Allow continue after 10 seconds
-      if (currentProgress >= 66.7) { // 10 seconds
+      // Allow continue after 20 seconds if signal quality is good
+      if (currentProgress >= 66.7 && signalQuality !== 'poor') { // 20 seconds
         setCanContinue(true);
       }
     }, 1000);
@@ -283,7 +287,7 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     // Compile comprehensive telemetry data
     const telemetryData = {
       timestamp: new Date().toISOString(),
-      duration: 15000, // 15 seconds
+      duration: 30000, // 30 seconds
       heartRate: finalHeartRate,
       vitalSigns: {
         heartRate: finalHeartRate,
@@ -449,40 +453,68 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
             </div>
           </div>
 
-          {/* Video Feed */}
-          <div className="relative bg-muted rounded-lg overflow-hidden">
-            <video
-              ref={videoRef}
-              className="w-full h-64 object-cover"
-              playsInline
-              muted
-            />
-            
-            {faceDetected && (
-              <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-sm">
-                Face Detected
+          {/* Video Feed with Facial Mask Overlay */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="relative bg-muted rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  className="w-full h-80 object-cover"
+                  playsInline
+                  muted
+                />
+                
+                <FacialMaskOverlay
+                  videoElement={videoRef.current}
+                  roi={getROI()}
+                  faceDetected={faceDetected}
+                  signalQuality={signalQuality}
+                />
+                
+                {faceDetected && (
+                  <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-sm">
+                    Face Detected
+                  </div>
+                )}
+                
+                {isRecording && (
+                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm animate-pulse">
+                    Recording
+                  </div>
+                )}
               </div>
-            )}
+            </div>
             
-            {isRecording && (
-              <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm animate-pulse">
-                Recording
-              </div>
-            )}
+            {/* 30-Second Timer */}
+            <div className="flex items-center justify-center">
+              <CircularProgressTimer
+                progress={progress}
+                duration={30}
+                isActive={isRecording}
+              />
+            </div>
           </div>
 
-          {/* Progress */}
-          {isRecording && (
-            <div className="space-y-2">
-              <Progress value={progress} className="h-2" />
-              <p className="text-sm text-center text-muted-foreground">
-                Analyzing... {Math.round(progress)}%
-              </p>
-            </div>
-          )}
+          {/* Real-time Heart Rate Display */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RealtimeHeartDisplay
+              currentReading={rppgReading}
+              fallbackBPM={vitalSigns.heartRate}
+              signalQuality={signalQuality}
+              isAnalyzing={isRPPGActive}
+            />
+            
+            {/* Enhanced PPG Waveform */}
+            <EnhancedPPGWaveform
+              currentSignal={currentSignal}
+              currentReading={rppgReading}
+              signalQuality={signalQuality}
+              isAnalyzing={isRPPGActive}
+            />
+          </div>
 
-          {/* Main Analysis Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Secondary Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Real-time Metrics */}
             <div className="space-y-4">
               <Card>
