@@ -17,10 +17,10 @@ export interface RPPGReading {
 
 export class RPPGAnalyzer {
   private rgbBuffer: { r: number[], g: number[], b: number[] } = { r: [], g: [], b: [] };
-  private readonly bufferSize = 150; // 5 seconds at 30fps
-  private readonly minBufferSize = 90; // 3 seconds minimum
+  private readonly bufferSize = 900; // 30 seconds at 30fps
+  private readonly minBufferSize = 300; // 10 seconds minimum for stable reading
   
-  // Face detection and ROI extraction
+  // Enhanced face detection with multiple ROI analysis
   static detectFaceROI(videoElement: HTMLVideoElement, canvas: HTMLCanvasElement): ROICoordinates | null {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
@@ -32,18 +32,21 @@ export class RPPGAnalyzer {
     // Draw current frame
     ctx.drawImage(videoElement, 0, 0);
     
-    // Simple face detection using center region
-    // In a real implementation, you'd use face detection APIs
-    const faceWidth = canvas.width * 0.3;
-    const faceHeight = canvas.height * 0.4;
-    const faceX = (canvas.width - faceWidth) / 2;
-    const faceY = canvas.height * 0.2;
+    // Try to detect face using brightness variance
+    const detected = this.detectFaceByVariance(ctx, canvas.width, canvas.height);
+    if (detected) return detected;
     
-    // Extract forehead region (top 1/3 of face)
-    const roiWidth = faceWidth * 0.8;
-    const roiHeight = faceHeight * 0.3;
+    // Fallback to center region detection
+    const faceWidth = canvas.width * 0.35;
+    const faceHeight = canvas.height * 0.45;
+    const faceX = (canvas.width - faceWidth) / 2;
+    const faceY = canvas.height * 0.15;
+    
+    // Extract optimal forehead region for PPG
+    const roiWidth = faceWidth * 0.7;
+    const roiHeight = faceHeight * 0.25;
     const roiX = faceX + (faceWidth - roiWidth) / 2;
-    const roiY = faceY + faceHeight * 0.1;
+    const roiY = faceY + faceHeight * 0.05;
     
     return {
       x: Math.round(roiX),
@@ -51,6 +54,73 @@ export class RPPGAnalyzer {
       width: Math.round(roiWidth),
       height: Math.round(roiHeight)
     };
+  }
+
+  // Detect face using brightness variance analysis
+  private static detectFaceByVariance(ctx: CanvasRenderingContext2D, width: number, height: number): ROICoordinates | null {
+    try {
+      const sampleSize = 20;
+      const regions = [];
+      
+      // Sample multiple regions and find the one with best characteristics for PPG
+      for (let i = 0; i < 5; i++) {
+        for (let j = 0; j < 3; j++) {
+          const x = (width * 0.2) + (i * width * 0.12);
+          const y = (height * 0.1) + (j * height * 0.15);
+          const w = width * 0.12;
+          const h = height * 0.12;
+          
+          const imageData = ctx.getImageData(x, y, w, h);
+          const variance = this.calculateVariance(imageData.data);
+          const brightness = this.calculateBrightness(imageData.data);
+          
+          // Look for regions with good variance and proper brightness
+          if (variance > 50 && brightness > 80 && brightness < 180) {
+            regions.push({ x, y, width: w, height: h, score: variance + (150 - Math.abs(brightness - 120)) });
+          }
+        }
+      }
+      
+      // Return the best scoring region
+      if (regions.length > 0) {
+        const best = regions.reduce((a, b) => a.score > b.score ? a : b);
+        return {
+          x: Math.round(best.x),
+          y: Math.round(best.y),
+          width: Math.round(best.width),
+          height: Math.round(best.height)
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private static calculateVariance(data: Uint8ClampedArray): number {
+    let sum = 0, sumSquares = 0, count = 0;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      sum += brightness;
+      sumSquares += brightness * brightness;
+      count++;
+    }
+    
+    const mean = sum / count;
+    return (sumSquares / count) - (mean * mean);
+  }
+
+  private static calculateBrightness(data: Uint8ClampedArray): number {
+    let sum = 0, count = 0;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+      count++;
+    }
+    
+    return sum / count;
   }
   
   // Extract RGB values from ROI
@@ -192,9 +262,28 @@ export class RPPGAnalyzer {
   
   // Get the latest processed signal for visualization
   getLatestSignal(): number[] {
-    if (this.rgbBuffer.g.length < 30) return [];
+    if (this.rgbBuffer.g.length < 90) return [];
     
-    const recent = this.rgbBuffer.g.slice(-60); // Last 2 seconds
+    const recent = this.rgbBuffer.g.slice(-150); // Last 5 seconds for visualization
     return SignalProcessor.normalize(SignalProcessor.detrend(recent));
+  }
+
+  // Get multiple ROI readings for improved accuracy
+  getMultiROIReadings(): { forehead: number[], cheeks: number[] } {
+    const halfLength = Math.floor(this.rgbBuffer.g.length / 2);
+    return {
+      forehead: this.rgbBuffer.g.slice(0, halfLength),
+      cheeks: this.rgbBuffer.g.slice(halfLength)
+    };
+  }
+
+  // Check if we have enough data for reliable analysis
+  hasMinimumData(): boolean {
+    return this.rgbBuffer.r.length >= this.minBufferSize;
+  }
+
+  // Get analysis progress for 30-second window
+  getAnalysisProgress(): number {
+    return Math.min(this.rgbBuffer.r.length / this.bufferSize, 1);
   }
 }

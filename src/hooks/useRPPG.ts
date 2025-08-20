@@ -11,10 +11,12 @@ interface UseRPPGReturn {
   isAnalyzing: boolean;
   currentReading: RPPGReading | null;
   bufferProgress: number;
+  analysisProgress: number;
   lightingCondition: 'too_dark' | 'too_bright' | 'good';
   movementDetected: boolean;
   signalQuality: 'poor' | 'fair' | 'good' | 'excellent';
   currentSignal: number[];
+  faceDetected: boolean;
   startAnalysis: (videoElement: HTMLVideoElement) => Promise<boolean>;
   stopAnalysis: () => void;
   getROI: () => ROICoordinates | null;
@@ -31,11 +33,13 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentReading, setCurrentReading] = useState<RPPGReading | null>(null);
   const [bufferProgress, setBufferProgress] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [lightingCondition, setLightingCondition] = useState<'too_dark' | 'too_bright' | 'good'>('good');
   const [movementDetected, setMovementDetected] = useState(false);
   const [signalQuality, setSignalQuality] = useState<'poor' | 'fair' | 'good' | 'excellent'>('poor');
   const [currentSignal, setCurrentSignal] = useState<number[]>([]);
   const [currentROI, setCurrentROI] = useState<ROICoordinates | null>(null);
+  const [faceDetected, setFaceDetected] = useState(false);
 
   const analyzerRef = useRef<RPPGAnalyzer | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -59,8 +63,12 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
     const canvas = initializeCanvas();
     const roi = RPPGAnalyzer.detectFaceROI(videoRef.current, canvas);
     
-    if (!roi) return;
+    if (!roi) {
+      setFaceDetected(false);
+      return;
+    }
     
+    setFaceDetected(true);
     setCurrentROI(roi);
     
     const rgb = RPPGAnalyzer.extractRGBFromROI(canvas, roi);
@@ -80,9 +88,13 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
     // Add reading to analyzer
     analyzerRef.current.addReading(rgb);
     
-    // Update buffer progress
+    // Update buffer progress (for minimum data requirements)
     const progress = analyzerRef.current.getBufferProgress();
     setBufferProgress(progress);
+
+    // Update analysis progress (for 30-second window)
+    const analysisProgress = analyzerRef.current.getAnalysisProgress();
+    setAnalysisProgress(analysisProgress);
 
     // Update signal visualization
     const signal = analyzerRef.current.getLatestSignal();
@@ -114,8 +126,10 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
       // Reset state
       setCurrentReading(null);
       setBufferProgress(0);
+      setAnalysisProgress(0);
       setSignalQuality('poor');
       setCurrentSignal([]);
+      setFaceDetected(false);
       previousRGBRef.current = null;
 
       // Start capture interval
@@ -156,9 +170,11 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
     
     setCurrentReading(null);
     setBufferProgress(0);
+    setAnalysisProgress(0);
     setSignalQuality('poor');
     setCurrentSignal([]);
     setCurrentROI(null);
+    setFaceDetected(false);
     previousRGBRef.current = null;
   }, []);
 
@@ -176,10 +192,12 @@ export const useRPPG = (options: UseRPPGOptions = {}): UseRPPGReturn => {
     isAnalyzing,
     currentReading,
     bufferProgress,
+    analysisProgress,
     lightingCondition,
     movementDetected,
     signalQuality,
     currentSignal,
+    faceDetected,
     startAnalysis,
     stopAnalysis,
     getROI,
