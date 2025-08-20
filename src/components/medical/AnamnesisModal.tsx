@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, MessageCircle, ClipboardList, ArrowRight } from "lucide-react";
+import { ManchesterBadge, ManchesterIndicator } from "@/components/ui/manchester-badge";
+import { getManchesterLevelByScore, calculateUrgencyScore } from "@/utils/manchesterColors";
 import StructuredAnamnesis from "./StructuredAnamnesis";
 
 interface AnamnesisModalProps {
@@ -48,52 +50,59 @@ const AnamnesisModal = ({ isOpen, onClose, onComplete }: AnamnesisModalProps) =>
         <div className="space-y-6 py-4">
           {/* Resultado da Análise */}
           {analysisResult && (
-            <div className="space-y-4 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Análise Concluída
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <span className="font-medium text-sm">Tipo de Análise:</span>
-                  <Badge variant="outline">
-                    {analysisResult.type === 'structured' ? 'Estruturada' : 'Conversacional'}
-                  </Badge>
-                </div>
-                
-                {analysisResult.urgencyLevel && (
-                  <div className="space-y-2">
-                    <span className="font-medium text-sm">Nível de Urgência:</span>
-                    <Badge variant={
-                      analysisResult.urgencyLevel === 'crítica' ? 'destructive' :
-                      analysisResult.urgencyLevel === 'alta' ? 'secondary' :
-                      'default'
-                    }>
-                      {analysisResult.urgencyLevel.toUpperCase()}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              {analysisResult.recommendations && (
-                <div className="space-y-2">
-                  <p className="font-medium text-sm">Recomendações:</p>
-                  <ul className="text-sm space-y-1">
-                    {analysisResult.recommendations.map((rec: string, index: number) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-primary">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            <div className="space-y-4">
+              {/* Indicador de Urgência Manchester */}
+              {analysisResult.urgencyScore !== undefined && (
+                <ManchesterIndicator 
+                  level={getManchesterLevelByScore(analysisResult.urgencyScore)}
+                  showDescription={true}
+                />
               )}
               
-              <Button onClick={handleComplete} className="w-full">
-                <ArrowRight className="h-4 w-4 mr-2" />
-                Continuar para Análise Clínica
-              </Button>
+              <div className="space-y-4 p-4 bg-muted rounded-lg">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Análise Concluída
+                </h3>
+              
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <span className="font-medium text-sm">Tipo de Análise:</span>
+                    <Badge variant="outline">
+                      {analysisResult.type === 'structured' ? 'Estruturada' : 'Conversacional'}
+                    </Badge>
+                  </div>
+                  
+                  {analysisResult.urgencyScore !== undefined && (
+                    <div className="space-y-2">
+                      <span className="font-medium text-sm">Nível de Urgência:</span>
+                      <ManchesterBadge 
+                        score={analysisResult.urgencyScore} 
+                        showTimeLimit={true}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {analysisResult.recommendations && (
+                  <div className="space-y-2">
+                    <p className="font-medium text-sm">Recomendações:</p>
+                    <ul className="text-sm space-y-1">
+                      {analysisResult.recommendations.map((rec: string, index: number) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-primary">•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <Button onClick={handleComplete} className="w-full">
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Continuar para Análise Clínica
+                </Button>
+              </div>
             </div>
           )}
 

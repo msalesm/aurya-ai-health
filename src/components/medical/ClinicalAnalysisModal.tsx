@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useVitalSigns } from '@/hooks/useVitalSigns';
+import { ManchesterBadge, ManchesterIndicator } from "@/components/ui/manchester-badge";
+import { getManchesterLevelByScore, calculateUrgencyScore } from "@/utils/manchesterColors";
 import { 
   FileText, 
   Download, 
@@ -79,17 +81,28 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
   };
 
   const calculateOverallUrgency = () => {
-    let urgencyScore = 0;
+    // Usar sistema Manchester de pontuação
+    const urgencyScore = calculateUrgencyScore({
+      heartRate: facialAnalysis?.heartRate || snapshotVitalSigns?.heartRate,
+      stressLevel: Math.max(
+        voiceAnalysis?.stress_indicators?.stress_level || 0,
+        facialAnalysis?.stressLevel || 0
+      ),
+      painLevel: anamnesisResults?.painLevel || 0,
+      breathingDifficulty: anamnesisResults?.breathingDifficulty || false,
+      severeSymptoms: anamnesisResults?.severeSymptoms || [],
+      mentalState: anamnesisResults?.mentalState || 'normal'
+    });
     
-    if (anamnesisResults?.urgency?.score) urgencyScore += anamnesisResults.urgency.score;
-    if (voiceAnalysis?.stress_indicators?.stress_level && voiceAnalysis.stress_indicators.stress_level > 7) urgencyScore += 3;
-    if (facialAnalysis?.stressLevel && facialAnalysis.stressLevel > 7) urgencyScore += 2;
-    if (facialAnalysis?.heartRate && facialAnalysis.heartRate > 100) urgencyScore += 2;
+    const manchesterLevel = getManchesterLevelByScore(urgencyScore);
     
-    if (urgencyScore >= 8) return { level: 'Crítica', color: 'destructive', action: 'Emergência médica' };
-    if (urgencyScore >= 5) return { level: 'Alta', color: 'warning', action: 'Atendimento urgente' };
-    if (urgencyScore >= 2) return { level: 'Média', color: 'secondary', action: 'Consulta nas próximas 24h' };
-    return { level: 'Baixa', color: 'default', action: 'Monitoramento' };
+    return {
+      score: urgencyScore,
+      level: manchesterLevel.name,
+      color: manchesterLevel.color,
+      action: `${manchesterLevel.description} - ${manchesterLevel.timeLimit}`,
+      manchester: manchesterLevel
+    };
   };
 
   const extractAllSymptoms = () => {
@@ -371,19 +384,30 @@ export const ClinicalAnalysisModal: React.FC<ClinicalAnalysisModalProps> = ({
               </CardContent>
             </Card>
 
+            {/* Manchester Urgency Indicator */}
+            {clinicalReport?.overallUrgency?.manchester && (
+              <div className="mb-4">
+                <ManchesterIndicator 
+                  level={clinicalReport.overallUrgency.manchester}
+                  showDescription={true}
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     Urgência Geral
-                    <Badge variant={clinicalReport?.overallUrgency?.color as any}>
-                      {clinicalReport?.overallUrgency?.level}
-                    </Badge>
+                    <ManchesterBadge 
+                      score={clinicalReport?.overallUrgency?.score}
+                      showTimeLimit={true}
+                    />
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    {clinicalReport?.overallUrgency?.action}
+                    Score: {clinicalReport?.overallUrgency?.score}/10
                   </p>
                 </CardContent>
               </Card>

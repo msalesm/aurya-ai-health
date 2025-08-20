@@ -406,6 +406,18 @@ export const FacialTelemetryModal: React.FC<FacialTelemetryModalProps> = ({
     }
   }, []);
 
+  // Auto-iniciar telemetria quando o modal abre
+  useEffect(() => {
+    if (isOpen && !isRecording && !mediaStreamRef.current) {
+      // Pequeno delay para permitir que o modal renderize completamente
+      const timer = setTimeout(() => {
+        startTelemetry();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     return () => {
       stopTelemetry();

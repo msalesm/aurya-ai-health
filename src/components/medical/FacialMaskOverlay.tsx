@@ -59,7 +59,8 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
       scaleY = scaleX;
       
       const scaledNativeHeight = videoNativeHeight * scaleY;
-      offsetY = (scaledNativeHeight - videoRect.height) / 2;
+      // Ajustar offset vertical para melhor alinhamento com o rosto
+      offsetY = (scaledNativeHeight - videoRect.height) / 2 - (videoRect.height * 0.05);
     }
     
     return { scaleX, scaleY, offsetX, offsetY };
