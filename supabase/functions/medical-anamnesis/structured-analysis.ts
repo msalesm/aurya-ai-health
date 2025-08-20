@@ -3,24 +3,32 @@
 export function calculateStructuredUrgency(answers: Record<string, any>): string {
   let urgencyScore = 0;
 
-  // Sintomas críticos (peso 4)
-  if (answers.chest_pain === 'sim') urgencyScore += 4;
-  if (answers.breathing_difficulty === 'sim') urgencyScore += 4;
+  // Sintomas críticos - garantir que dor no peito + dificuldade respirar = emergência
+  if (answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') urgencyScore += 4;
+  if (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim') urgencyScore += 4;
   if (answers.consciousness_loss === 'sim') urgencyScore += 4;
   if (answers.severe_bleeding === 'sim') urgencyScore += 4;
 
+  // Combinação crítica - dor no peito + dificuldade respirar
+  if ((answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') && 
+      (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim')) {
+    urgencyScore += 3; // Bônus para combinação crítica
+  }
+
   // Sintomas graves (peso 3)
+  if (answers.pain_intensity && answers.pain_intensity >= 8) urgencyScore += 3;
   if (answers.intense_pain && answers.intense_pain >= 8) urgencyScore += 3;
   if (answers.fever && answers.fever >= 39) urgencyScore += 3;
+  if (answers.fever_check === 'Sim') urgencyScore += 2;
   if (answers.vomiting === 'sim') urgencyScore += 2;
 
-  // Duração dos sintomas (peso 2)
-  if (answers.symptom_duration === 'menos_2_horas') urgencyScore += 2;
+  // Duração dos sintomas agudos
+  if (answers.symptom_duration === 'Menos de 1 dia' || answers.symptom_duration === 'menos_2_horas') urgencyScore += 2;
   if (answers.symptom_duration === '2_6_horas') urgencyScore += 1;
 
-  // Classificar urgência
-  if (urgencyScore >= 8) return 'crítica';
-  if (urgencyScore >= 5) return 'alta';
+  // Classificar urgência - ajustado para ser mais sensível a emergências
+  if (urgencyScore >= 7) return 'crítica';
+  if (urgencyScore >= 4) return 'alta';
   if (urgencyScore >= 2) return 'média';
   return 'baixa';
 }

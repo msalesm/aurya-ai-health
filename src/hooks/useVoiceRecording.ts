@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { usePermissions } from './usePermissions';
+import { detectAudioCapabilities, getOptimalAudioConfig } from '../utils/audioUtils';
 
 interface VoiceRecordingHook {
   isRecording: boolean;
@@ -33,19 +34,20 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
         }
       }
       
+      const audioConfig = getOptimalAudioConfig();
+      const capabilities = detectAudioCapabilities();
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 44100,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+        audio: audioConfig
       });
 
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Usar MIME type compatível com o dispositivo
+      const mediaRecorderOptions: MediaRecorderOptions = {};
+      if (capabilities.preferredMimeType) {
+        mediaRecorderOptions.mimeType = capabilities.preferredMimeType;
+      }
+
+      mediaRecorderRef.current = new MediaRecorder(stream, mediaRecorderOptions);
 
       audioChunksRef.current = [];
 
@@ -56,7 +58,8 @@ export const useVoiceRecording = (): VoiceRecordingHook => {
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const mimeType = capabilities.preferredMimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         setAudioData(audioBlob);
 
         // Parar todas as faixas de áudio

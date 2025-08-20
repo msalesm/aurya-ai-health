@@ -112,42 +112,53 @@ const StructuredAnamnesis: React.FC<StructuredAnamnesisProps> = ({ onComplete })
   const calculateUrgencyScore = (answers: Record<string, any>): number => {
     let score = 0;
     
-    // Sinais de alta prioridade
-    if (answers.breathing === 'Sim') score += 30;
-    if (answers.chest_pain === 'Sim') score += 25;
+    // Sintomas críticos de emergência - pontuação alta para garantir classificação correta
+    if (answers.breathing === 'Sim') score += 40; // Dificuldade respiratória = emergência
+    if (answers.chest_pain === 'Sim') score += 35; // Dor no peito = emergência
+    
+    // Combinação crítica: dor no peito + dificuldade respirar = emergência imediata
+    if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') score += 20;
+    
+    // Outros sintomas importantes
     if (answers.fever_check === 'Sim') score += 15;
     
     // Intensidade da dor
     const painIntensity = Number(answers.pain_intensity);
-    if (painIntensity >= 8) score += 20;
+    if (painIntensity >= 8) score += 15;
     else if (painIntensity >= 6) score += 10;
     else if (painIntensity >= 4) score += 5;
     
-    // Fator duração
-    if (answers.symptom_duration === 'Menos de 1 dia' && score > 20) score += 10;
+    // Fator duração - sintomas agudos são mais preocupantes
+    if (answers.symptom_duration === 'Menos de 1 dia' && score > 30) score += 10;
     
     return Math.min(score, 100);
   };
 
   const getUrgencyLevel = (score: number): string => {
-    if (score >= 70) return 'crítica';
-    if (score >= 50) return 'alta';
-    if (score >= 30) return 'média';
+    if (score >= 65) return 'crítica';   // Reduzido para capturar mais casos críticos
+    if (score >= 45) return 'alta';      // Ajustado proporcionalmente
+    if (score >= 25) return 'média';     // Ajustado proporcionalmente
     return 'baixa';
   };
 
   const generateRecommendations = (answers: Record<string, any>, score: number): string[] => {
     const recommendations = [];
     
-    if (score >= 70) {
-      recommendations.push('Procure atendimento médico de emergência imediatamente');
-      recommendations.push('Considere chamar ambulância se necessário');
-    } else if (score >= 50) {
-      recommendations.push('Procure atendimento médico urgente nas próximas horas');
-    } else if (score >= 30) {
-      recommendations.push('Agende consulta médica em 24-48 horas');
+    if (score >= 65) {
+      recommendations.push('EMERGÊNCIA: Procure atendimento médico imediatamente');
+      recommendations.push('Ligue para o SAMU (192) ou vá ao pronto-socorro agora');
+      if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') {
+        recommendations.push('Sintomas de possível emergência cardíaca - não espere');
+      }
+    } else if (score >= 45) {
+      recommendations.push('Procure atendimento médico urgente nas próximas 2-4 horas');
+      recommendations.push('Monitore os sintomas - procure emergência se piorarem');
+    } else if (score >= 25) {
+      recommendations.push('Agende consulta médica nas próximas 24-48 horas');
+      recommendations.push('Monitore os sintomas');
     } else {
       recommendations.push('Considere consulta médica de rotina');
+      recommendations.push('Observe a evolução dos sintomas');
     }
     
     return recommendations;

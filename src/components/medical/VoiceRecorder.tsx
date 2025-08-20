@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { usePermissions } from '@/hooks/usePermissions';
+import { detectAudioCapabilities, getOptimalAudioConfig } from '@/utils/audioUtils';
 
 interface VoiceRecorderProps {
   onAnalysisComplete?: (analysis: any) => void;
@@ -51,19 +52,20 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         }
       }
       
+      const audioConfig = getOptimalAudioConfig();
+      const capabilities = detectAudioCapabilities();
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 44100,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
+        audio: audioConfig
       });
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Usar MIME type compatível com o dispositivo
+      const mediaRecorderOptions: MediaRecorderOptions = {};
+      if (capabilities.preferredMimeType) {
+        mediaRecorderOptions.mimeType = capabilities.preferredMimeType;
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, mediaRecorderOptions);
       mediaRecorderRef.current = mediaRecorder;
 
       const chunks: BlobPart[] = [];
@@ -75,7 +77,9 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const capabilities = detectAudioCapabilities();
+        const mimeType = capabilities.preferredMimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
