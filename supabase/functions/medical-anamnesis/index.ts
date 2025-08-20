@@ -19,19 +19,107 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
+// Secure logging function
+const secureLog = (level: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  const sanitizedData = data ? sanitizeForLogging(data) : '';
+  console.log(`[${timestamp}] [${level}] ${message} ${sanitizedData}`);
+};
+
+// Data sanitization function
+const sanitizeForLogging = (data: any): string => {
+  if (!data) return '';
+  
+  if (typeof data === 'string') {
+    // Remove sensitive information
+    return data
+      .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '***.***.***-**') // CPF
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '***@***.**') // Email
+      .replace(/\b(?:\+55\s?)?\(?[1-9]\d?\)?\s?\d{4,5}-?\d{4}\b/g, '(**) *****-****'); // Phone
+  }
+  
+  if (typeof data === 'object') {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (['message', 'content', 'transcription', 'symptoms'].includes(key.toLowerCase())) {
+        sanitized[key] = '[MEDICAL_DATA_REMOVED]';
+      } else if (['userId', 'consultationId'].includes(key)) {
+        sanitized[key] = '[ID_REMOVED]';
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return JSON.stringify(sanitized);
+  }
+  
+  return String(data);
+};
+
+// Input validation function
+const validateInput = (data: any): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (!data.message || typeof data.message !== 'string') {
+    errors.push('Message is required and must be a string');
+  }
+  
+  if (!data.userId || typeof data.userId !== 'string') {
+    errors.push('UserId is required and must be a string');
+  }
+  
+  // Check for potential XSS/injection attempts
+  const maliciousPatterns = [
+    /<script/i,
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /eval\s*\(/i
+  ];
+  
+  const inputString = JSON.stringify(data);
+  for (const pattern of maliciousPatterns) {
+    if (pattern.test(inputString)) {
+      errors.push('Potentially malicious content detected');
+      break;
+    }
+  }
+  
+  // Size validation
+  if (inputString.length > 50000) {
+    errors.push('Input data too large');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, userId, consultationId, conversationHistory = [], isStructuredAnalysis = false } = await req.json();
-
-    if (!message || !userId) {
-      throw new Error('Message and userId are required');
+    const requestData = await req.json();
+    
+    // Validate input
+    const validation = validateInput(requestData);
+    if (!validation.isValid) {
+      secureLog('WARN', 'Invalid input received', { errors: validation.errors });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input data',
+        details: validation.errors
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.log('Processing medical anamnesis for user:', userId);
+    const { message, userId, consultationId, conversationHistory = [], isStructuredAnalysis = false } = requestData;
+
+    secureLog('INFO', 'Processing medical anamnesis', { 
+      userId: '[USER_ID_REMOVED]',
+      hasConsultationId: !!consultationId,
+      isStructured: isStructuredAnalysis,
+      messageLength: message.length 
+    });
 
     // Análise estruturada baseada em questionário objetivo
     if (isStructuredAnalysis) {
@@ -79,7 +167,13 @@ NÃO faça perguntas abertas. NÃO seja prolixo. FOQUE na urgência.`;
       { role: 'user', content: message }
     ];
 
-    // Chamar OpenAI GPT-4o
+    // Prepare sanitized data for OpenAI
+    const sanitizedMessages = messages.map(msg => ({
+      role: msg.role,
+      content: msg.role === 'system' ? msg.content : sanitizeForThirdPartyAPI(msg.content)
+    }));
+
+    // Call OpenAI GPT-4o with sanitized data
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -88,7 +182,7 @@ NÃO faça perguntas abertas. NÃO seja prolixo. FOQUE na urgência.`;
       },
       body: JSON.stringify({
         model: 'gpt-4o',
-        messages: messages,
+        messages: sanitizedMessages,
         temperature: 0.7,
         max_tokens: 150,
         presence_penalty: 0.1,
@@ -138,14 +232,34 @@ NÃO faça perguntas abertas. NÃO seja prolixo. FOQUE na urgência.`;
     });
 
   } catch (error) {
-    console.error('Error in medical-anamnesis function:', error);
+    secureLog('ERROR', 'Error in medical-anamnesis function', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.split('\n')[0] : undefined
+    });
+    
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unexpected error occurred' 
+      error: 'An error occurred processing your medical consultation. Please try again.',
+      code: 'MEDICAL_ANALYSIS_ERROR'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+});
+
+// Sanitize content for third-party APIs
+const sanitizeForThirdPartyAPI = (content: string): string => {
+  if (!content || typeof content !== 'string') return content;
+  
+  // Remove specific personal identifiers while preserving medical context
+  return content
+    .replace(/\bmeu nome é [^\s,.\n]+/gi, 'meu nome é [NOME_REMOVIDO]')
+    .replace(/\bchamo [^\s,.\n]+/gi, 'chamo [NOME_REMOVIDO]')
+    .replace(/\bsou [^\s,.\n]+ anos/gi, 'sou [IDADE_REMOVIDA] anos')
+    .replace(/\bmoro em [^\s,.\n]+/gi, 'moro em [LOCAL_REMOVIDO]')
+    // Keep medical symptoms and descriptions intact for proper analysis
+    .trim();
+};
 });
 
 async function analyzeUrgency(aiResponse: string, userMessage: string): Promise<any> {

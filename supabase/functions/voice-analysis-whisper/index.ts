@@ -8,19 +8,77 @@ const corsHeaders = {
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+// Secure logging function
+const secureLog = (level: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  const sanitizedData = data ? sanitizeForLogging(data) : '';
+  console.log(`[${timestamp}] [${level}] ${message} ${sanitizedData}`);
+};
+
+// Data sanitization for logging
+const sanitizeForLogging = (data: any): string => {
+  if (!data) return '';
+  
+  if (typeof data === 'object') {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (['audioData', 'transcription', 'text'].includes(key.toLowerCase())) {
+        sanitized[key] = '[AUDIO_DATA_REMOVED]';
+      } else if (['userId', 'consultationId'].includes(key)) {
+        sanitized[key] = '[ID_REMOVED]';
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return JSON.stringify(sanitized);
+  }
+  
+  return String(data);
+};
+
+// Input validation
+const validateInput = (data: any): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (!data.audioData || typeof data.audioData !== 'string') {
+    errors.push('Audio data is required');
+  }
+  
+  if (data.audioData && data.audioData.length > 10 * 1024 * 1024) { // 10MB limit
+    errors.push('Audio file too large');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { audioData, userId, consultationId } = await req.json();
-
-    if (!audioData) {
-      throw new Error('Audio data is required');
+    const requestData = await req.json();
+    
+    // Validate input
+    const validation = validateInput(requestData);
+    if (!validation.isValid) {
+      secureLog('WARN', 'Invalid input received', { errors: validation.errors });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input data',
+        details: validation.errors
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.log('Processing voice analysis...');
+    const { audioData, userId, consultationId } = requestData;
+
+    secureLog('INFO', 'Processing voice analysis', { 
+      userId: '[USER_ID_REMOVED]',
+      hasConsultationId: !!consultationId,
+      audioSize: audioData.length 
+    });
 
     // Converter base64 para blob com validação
     let audioBlob: Blob;
@@ -73,10 +131,10 @@ serve(async (req) => {
 
       const whisperData = await whisperResponse.json();
       transcription = { text: whisperData.text };
-      console.log('Transcription completed:', transcription.text);
+      secureLog('INFO', 'Transcription completed', { textLength: whisperData.text.length });
       
     } catch (transcriptionError) {
-      console.error('Transcription error:', transcriptionError);
+      secureLog('ERROR', 'Transcription error', transcriptionError);
       transcription = { text: 'Falha na transcrição - usando análise simulada' };
     }
 
@@ -168,10 +226,15 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in voice-analysis function:', error);
+    secureLog('ERROR', 'Error in voice-analysis function', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.split('\n')[0] : undefined
+    });
+    
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message || 'An unexpected error occurred' 
+      error: 'An error occurred processing your voice analysis. Please try again.',
+      code: 'VOICE_ANALYSIS_ERROR'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

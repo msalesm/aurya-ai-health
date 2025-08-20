@@ -9,19 +9,76 @@ const corsHeaders = {
 const googleApiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY');
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+// Secure logging function
+const secureLog = (level: string, message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  const sanitizedData = data ? sanitizeForLogging(data) : '';
+  console.log(`[${timestamp}] [${level}] ${message} ${sanitizedData}`);
+};
+
+// Data sanitization for logging
+const sanitizeForLogging = (data: any): string => {
+  if (!data) return '';
+  
+  if (typeof data === 'object') {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (['imageData', 'content'].includes(key.toLowerCase())) {
+        sanitized[key] = '[IMAGE_DATA_REMOVED]';
+      } else if (['userId', 'consultationId'].includes(key)) {
+        sanitized[key] = '[ID_REMOVED]';
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return JSON.stringify(sanitized);
+  }
+  
+  return String(data);
+};
+
+// Input validation
+const validateInput = (data: any): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (!data.imageData || typeof data.imageData !== 'string') {
+    errors.push('Image data is required');
+  }
+  
+  if (data.imageData && data.imageData.length > 10 * 1024 * 1024) { // 10MB limit
+    errors.push('Image file too large');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { imageData, analysisType = 'comprehensive' } = await req.json();
-
-    if (!imageData) {
-      throw new Error('Image data is required');
+    const requestData = await req.json();
+    
+    // Validate input
+    const validation = validateInput(requestData);
+    if (!validation.isValid) {
+      secureLog('WARN', 'Invalid input received', { errors: validation.errors });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid input data',
+        details: validation.errors
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    console.log('Starting hybrid facial analysis...');
+    const { imageData, analysisType = 'comprehensive' } = requestData;
+
+    secureLog('INFO', 'Starting hybrid facial analysis', { 
+      analysisType,
+      imageSize: imageData.length 
+    });
 
     // 1. Google Cloud Vision API para detecção facial
     let faceDetection;
@@ -53,10 +110,10 @@ serve(async (req) => {
 
       const visionData = await visionResponse.json();
       faceDetection = visionData.responses[0];
-      console.log('Google Vision analysis completed');
+      secureLog('INFO', 'Google Vision analysis completed', { faceCount: visionData.responses[0]?.faceAnnotations?.length || 0 });
 
     } catch (visionError) {
-      console.error('Vision API error:', visionError);
+      secureLog('ERROR', 'Vision API error', visionError);
       faceDetection = { faceAnnotations: [] };
     }
 
@@ -98,7 +155,7 @@ serve(async (req) => {
           emotionalAnalysis = JSON.parse(expressionData.choices[0].message.content);
         }
       } catch (emotionError) {
-        console.error('Emotional analysis error:', emotionError);
+        secureLog('ERROR', 'Emotional analysis error', emotionError);
       }
     }
 
@@ -126,9 +183,14 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in hybrid facial analysis:', error);
+    secureLog('ERROR', 'Error in hybrid facial analysis', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack?.split('\n')[0] : undefined
+    });
+    
     return new Response(JSON.stringify({ 
-      error: error.message || 'An unexpected error occurred' 
+      error: 'An error occurred processing your facial analysis. Please try again.',
+      code: 'FACIAL_ANALYSIS_ERROR'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
