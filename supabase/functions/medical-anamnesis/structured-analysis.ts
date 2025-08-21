@@ -9,35 +9,36 @@ export function calculateStructuredUrgency(answers: Record<string, any>): string
 
   let score = 0;
 
-  // Sintomas críticos individuais que levam à emergência (alinhado com frontend)
-  if (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim') score = 90;
-  else if (answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') score = 70;
+  // Sintomas críticos individuais que levam à emergência (alinhado com frontend - escala 1-10)
+  if (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim') score = 9;
+  else if (answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') score = 7;
   
   // Sintomas extremamente graves
-  if (answers.consciousness_loss === 'sim') score = 95;
-  if (answers.severe_bleeding === 'sim') score = 95;
+  if (answers.consciousness_loss === 'sim') score = 10;
+  if (answers.severe_bleeding === 'sim') score = 10;
 
   // Intensidade da dor pode elevar o nível
   const painIntensity = Number(answers.pain_intensity || answers.intense_pain);
-  if (painIntensity >= 9) score = Math.max(score, 85);
-  else if (painIntensity >= 7) score = Math.max(score, 60);
-  else if (painIntensity >= 5) score = Math.max(score, 40);
+  if (painIntensity >= 9) score = Math.max(score, 9);
+  else if (painIntensity >= 7) score = Math.max(score, 6);
+  else if (painIntensity >= 5) score = Math.max(score, 4);
 
   // Outros sintomas graves
-  if (answers.fever && answers.fever >= 39) score = Math.max(score, 50);
-  if (answers.fever_check === 'Sim') score = Math.max(score, 30);
-  if (answers.vomiting === 'sim') score = Math.max(score, 25);
+  if (answers.fever && answers.fever >= 39) score = Math.max(score, 5);
+  if (answers.fever_check === 'Sim') score = Math.max(score, 3);
+  if (answers.vomiting === 'sim') score = Math.max(score, 3);
 
   // Sintomas agudos elevam urgência se já há outros sintomas
-  if ((answers.symptom_duration === 'Menos de 1 dia' || answers.symptom_duration === 'menos_2_horas') && score > 40) {
-    score = Math.min(score + 15, 100);
+  if ((answers.symptom_duration === 'Menos de 1 dia' || answers.symptom_duration === 'menos_2_horas') && score > 4) {
+    score = Math.min(score + 1, 10);
   }
 
-  // Classificação alinhada com Manchester e frontend
-  if (score >= 80) return 'crítica';    // Manchester Vermelho
-  if (score >= 60) return 'alta';       // Manchester Laranja
-  if (score >= 40) return 'média';      // Manchester Amarelo
-  return 'baixa';                       // Manchester Verde/Azul
+  // Classificação alinhada com Manchester e frontend (escala 1-10)
+  if (score >= 9) return 'crítica';    // Manchester Vermelho (9-10)
+  if (score >= 7) return 'alta';       // Manchester Laranja (7-8)
+  if (score >= 5) return 'média';      // Manchester Amarelo (5-6)
+  if (score >= 3) return 'baixa';      // Manchester Verde (3-4)
+  return 'baixa';                      // Manchester Azul (1-2)
 }
 
 export function extractStructuredSymptoms(answers: Record<string, any>): string[] {
@@ -56,7 +57,7 @@ export function generateStructuredRecommendations(answers: Record<string, any>):
   const urgency = calculateStructuredUrgency(answers);
   const recommendations = [];
 
-  // Recomendações alinhadas com frontend
+  // Recomendações alinhadas com frontend (escala Manchester correta)
   switch (urgency) {
     case 'crítica':
       recommendations.push('🚨 EMERGÊNCIA: Procurar atendimento médico IMEDIATAMENTE');

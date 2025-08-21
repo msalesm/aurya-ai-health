@@ -112,35 +112,36 @@ const StructuredAnamnesis: React.FC<StructuredAnamnesisProps> = ({ onComplete })
   const calculateUrgencyScore = (answers: Record<string, any>): { score: number; level: string } => {
     // SEMPRE verificar combinação crítica primeiro
     if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') {
-      return { score: 100, level: 'crítica' }; // Manchester Vermelho - EMERGÊNCIA IMEDIATA
+      return { score: 10, level: 'crítica' }; // Manchester Vermelho - EMERGÊNCIA IMEDIATA
     }
     
     let score = 0;
     
     // Sintomas críticos individuais que levam à emergência
-    if (answers.breathing === 'Sim') score = 90;  // Dificuldade respiratória isolada = emergência
-    else if (answers.chest_pain === 'Sim') score = 70; // Dor no peito isolada = muito urgente
+    if (answers.breathing === 'Sim') score = 9;  // Dificuldade respiratória isolada = emergência
+    else if (answers.chest_pain === 'Sim') score = 7; // Dor no peito isolada = muito urgente
     
     // Intensidade da dor pode elevar o nível
     const painIntensity = Number(answers.pain_intensity);
-    if (painIntensity >= 9) score = Math.max(score, 85); // Dor extrema = emergência
-    else if (painIntensity >= 7) score = Math.max(score, 60); // Dor severa = urgente
-    else if (painIntensity >= 5) score = Math.max(score, 40); // Dor moderada = pouco urgente
+    if (painIntensity >= 9) score = Math.max(score, 9); // Dor extrema = emergência
+    else if (painIntensity >= 7) score = Math.max(score, 6); // Dor severa = urgente
+    else if (painIntensity >= 5) score = Math.max(score, 4); // Dor moderada = pouco urgente
     
     // Outros sintomas graves
-    if (answers.fever_check === 'Sim') score = Math.max(score, 30);
+    if (answers.fever_check === 'Sim') score = Math.max(score, 3);
     
     // Sintomas agudos (menos de 1 dia) elevam urgência se já há outros sintomas
-    if (answers.symptom_duration === 'Menos de 1 dia' && score > 40) {
-      score = Math.min(score + 15, 100);
+    if (answers.symptom_duration === 'Menos de 1 dia' && score > 4) {
+      score = Math.min(score + 1, 10);
     }
     
-    // Determinar nível Manchester baseado no score
+    // Determinar nível Manchester baseado no score (escala 1-10)
     let level: string;
-    if (score >= 80) level = 'crítica';   // Manchester Vermelho - Emergência
-    else if (score >= 60) level = 'alta';      // Manchester Laranja - Muito Urgente  
-    else if (score >= 40) level = 'média';     // Manchester Amarelo - Urgente
-    else level = 'baixa';                      // Manchester Verde/Azul - Pouco/Não Urgente
+    if (score >= 9) level = 'crítica';   // Manchester Vermelho - Emergência (9-10)
+    else if (score >= 7) level = 'alta';      // Manchester Laranja - Muito Urgente (7-8)
+    else if (score >= 5) level = 'média';     // Manchester Amarelo - Urgente (5-6)
+    else if (score >= 3) level = 'baixa';     // Manchester Verde - Pouco Urgente (3-4)
+    else level = 'baixa';                     // Manchester Azul - Não Urgente (1-2)
     
     return { score, level };
   };
@@ -148,19 +149,19 @@ const StructuredAnamnesis: React.FC<StructuredAnamnesisProps> = ({ onComplete })
   const generateRecommendations = (answers: Record<string, any>, score: number): string[] => {
     const recommendations = [];
     
-    // Recomendações baseadas no score unificado
-    if (score >= 80) {
+    // Recomendações baseadas no score Manchester (escala 1-10)
+    if (score >= 9) {
       recommendations.push('🚨 EMERGÊNCIA: Procurar atendimento médico IMEDIATAMENTE');
       recommendations.push('Ligar para 192 (SAMU) ou dirigir-se ao pronto-socorro AGORA');
       recommendations.push('NÃO aguardar - risco iminente à vida');
       if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') {
         recommendations.push('⚠️ Possível emergência cardiorrespiratória - ação imediata necessária');
       }
-    } else if (score >= 60) {
+    } else if (score >= 7) {
       recommendations.push('⚠️ MUITO URGENTE: Procurar atendimento em até 10 minutos');
       recommendations.push('Dirigir-se ao pronto-socorro sem demora');
       recommendations.push('Condição pode deteriorar rapidamente');
-    } else if (score >= 40) {
+    } else if (score >= 5) {
       recommendations.push('⏰ URGENTE: Procurar atendimento em até 60 minutos');
       recommendations.push('Dirigir-se à UPA ou pronto-socorro');
       recommendations.push('Monitorar sintomas continuamente');

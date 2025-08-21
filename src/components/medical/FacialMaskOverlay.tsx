@@ -104,58 +104,97 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
         return;
       }
 
-      // Desenhar overlay semi-transparente em toda a área
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      // Criar overlay com gradiente radial elegante
+      const gradient = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+      );
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+      gradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.7)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+      
+      ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Calcular centro e dimensões do oval
+      // Calcular centro e dimensões do oval orgânico
       const centerX = displayROI.x + displayROI.width / 2;
       const centerY = displayROI.y + displayROI.height / 2;
-      const radiusX = (displayROI.width + 40) / 2;
-      const radiusY = (displayROI.height + 60) / 2;
+      const baseRadiusX = displayROI.width / 2;
+      const baseRadiusY = displayROI.height / 2;
       
-      // Limpar área oval (criar "janela" transparente)
+      // Ajustar forma oval mais orgânica (formato face)
+      const radiusX = baseRadiusX + 30;
+      const radiusY = baseRadiusY + 50;
+      
+      // Criar máscara suave com múltiplas camadas
+      const qualityColor = getQualityColor(signalQuality);
+      
+      // Camada externa - sombra suave
       ctx.globalCompositeOperation = 'destination-out';
+      for (let i = 5; i >= 0; i--) {
+        ctx.globalAlpha = 0.15;
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, radiusX + i * 8, radiusY + i * 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Área principal transparente
+      ctx.globalAlpha = 1;
       ctx.beginPath();
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.fill();
       
-      // Restaurar modo de desenho normal
+      // Restaurar modo de desenho
       ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
       
-      // Desenhar contorno oval com gradiente
-      const qualityColor = getQualityColor(signalQuality);
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = qualityColor;
+      // Borda principal elegante com gradiente
+      const borderGradient = ctx.createLinearGradient(
+        centerX - radiusX, centerY - radiusY,
+        centerX + radiusX, centerY + radiusY
+      );
+      borderGradient.addColorStop(0, qualityColor);
+      borderGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)');
+      borderGradient.addColorStop(1, qualityColor);
       
-      // Oval principal
+      ctx.strokeStyle = borderGradient;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = qualityColor;
+      ctx.shadowBlur = 10;
+      
       ctx.beginPath();
       ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Desenhar guias de alinhamento elegantes
-      const guideLength = 30;
-      const guideDistance = radiusX * 0.7;
-      const guides = [
-        // Guias horizontais (esquerda e direita)
-        { x: centerX - guideDistance, y: centerY, angle: 0 },
-        { x: centerX + guideDistance, y: centerY, angle: Math.PI },
-        // Guias verticais (cima e baixo)  
-        { x: centerX, y: centerY - radiusY * 0.6, angle: Math.PI / 2 },
-        { x: centerX, y: centerY + radiusY * 0.6, angle: -Math.PI / 2 }
+      // Remover sombra para próximos desenhos
+      ctx.shadowBlur = 0;
+      
+      // Guias de alinhamento estilo banking app
+      const cornerSize = 25;
+      const cornerThickness = 4;
+      const cornerOffset = radiusX * 0.75;
+      
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = cornerThickness;
+      ctx.lineCap = 'round';
+      
+      // Cantos arredondados nas 4 direções
+      const corners = [
+        { x: centerX - cornerOffset, y: centerY - radiusY * 0.5, angles: [0, Math.PI/2] },
+        { x: centerX + cornerOffset, y: centerY - radiusY * 0.5, angles: [Math.PI/2, Math.PI] },
+        { x: centerX - cornerOffset, y: centerY + radiusY * 0.5, angles: [Math.PI, 3*Math.PI/2] },
+        { x: centerX + cornerOffset, y: centerY + radiusY * 0.5, angles: [3*Math.PI/2, 2*Math.PI] }
       ];
       
-      ctx.lineWidth = 3;
-      guides.forEach(guide => {
+      corners.forEach(corner => {
         ctx.beginPath();
-        ctx.moveTo(
-          guide.x - Math.cos(guide.angle) * guideLength / 2,
-          guide.y - Math.sin(guide.angle) * guideLength / 2
-        );
-        ctx.lineTo(
-          guide.x + Math.cos(guide.angle) * guideLength / 2,
-          guide.y + Math.sin(guide.angle) * guideLength / 2
-        );
+        ctx.moveTo(corner.x - cornerSize/2, corner.y);
+        ctx.lineTo(corner.x + cornerSize/2, corner.y);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(corner.x, corner.y - cornerSize/2);
+        ctx.lineTo(corner.x, corner.y + cornerSize/2);
         ctx.stroke();
       });
 
@@ -185,81 +224,122 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
   };
 
   const drawSearchIndication = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-    // Desenhar overlay semi-transparente em toda a área
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Calcular centro e dimensões do oval para busca
+    // Gradiente radial elegante para busca
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radiusX = canvas.width * 0.15; // Oval menor para indicar onde posicionar o rosto
-    const radiusY = canvas.height * 0.2;
     
-    // Limpar área oval (criar "janela" transparente)
+    const searchGradient = ctx.createRadialGradient(
+      centerX, centerY, 0,
+      centerX, centerY, Math.max(canvas.width, canvas.height) / 2
+    );
+    searchGradient.addColorStop(0, 'rgba(59, 130, 246, 0.1)'); // blue-500 suave
+    searchGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.6)');
+    searchGradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+    
+    ctx.fillStyle = searchGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Oval de busca mais elegante
+    const radiusX = canvas.width * 0.18;
+    const radiusY = canvas.height * 0.25;
+    
+    // Múltiplas camadas para efeito suave
     ctx.globalCompositeOperation = 'destination-out';
+    for (let i = 4; i >= 0; i--) {
+      ctx.globalAlpha = 0.2;
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX + i * 6, radiusY + i * 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Área central completamente transparente
+    ctx.globalAlpha = 1;
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Restaurar modo de desenho normal
     ctx.globalCompositeOperation = 'source-over';
     
-    // Desenhar contorno oval pulsante
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#3b82f6'; // blue-500
-    ctx.setLineDash([10, 5]);
+    // Borda pulsante com gradiente
+    const time = Date.now() * 0.003;
+    const pulseSize = Math.sin(time) * 3 + 3;
+    
+    const borderGradient = ctx.createLinearGradient(
+      centerX - radiusX, centerY - radiusY,
+      centerX + radiusX, centerY + radiusY
+    );
+    borderGradient.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
+    borderGradient.addColorStop(0.5, 'rgba(147, 197, 253, 1)'); // blue-300
+    borderGradient.addColorStop(1, 'rgba(59, 130, 246, 0.8)');
+    
+    ctx.strokeStyle = borderGradient;
+    ctx.lineWidth = 3 + pulseSize;
+    ctx.shadowColor = 'rgba(59, 130, 246, 0.5)';
+    ctx.shadowBlur = 15;
     
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
     ctx.stroke();
     
-    // Desenhar guias de alinhamento elegantes
-    const guideLength = 25;
-    const guideDistance = radiusX * 0.8;
-    const guides = [
-      // Guias horizontais
-      { x: centerX - guideDistance, y: centerY, angle: 0 },
-      { x: centerX + guideDistance, y: centerY, angle: Math.PI },
-      // Guias verticais
-      { x: centerX, y: centerY - radiusY * 0.7, angle: Math.PI / 2 },
-      { x: centerX, y: centerY + radiusY * 0.7, angle: -Math.PI / 2 }
+    ctx.shadowBlur = 0;
+    
+    // Indicadores de canto estilo banking
+    const cornerLength = 30;
+    const cornerWidth = 4;
+    const cornerRadius = Math.min(radiusX, radiusY) * 0.8;
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = cornerWidth;
+    ctx.lineCap = 'round';
+    
+    // 4 cantos com linhas em L
+    const cornerPositions = [
+      { x: centerX - cornerRadius * 0.7, y: centerY - cornerRadius * 0.5 }, // top-left
+      { x: centerX + cornerRadius * 0.7, y: centerY - cornerRadius * 0.5 }, // top-right  
+      { x: centerX - cornerRadius * 0.7, y: centerY + cornerRadius * 0.5 }, // bottom-left
+      { x: centerX + cornerRadius * 0.7, y: centerY + cornerRadius * 0.5 }  // bottom-right
     ];
     
-    ctx.lineWidth = 2;
-    ctx.setLineDash([]);
-    guides.forEach(guide => {
+    cornerPositions.forEach((pos, index) => {
+      const isLeft = index % 2 === 0;
+      const isTop = index < 2;
+      
+      // Linha horizontal
       ctx.beginPath();
-      ctx.moveTo(
-        guide.x - Math.cos(guide.angle) * guideLength / 2,
-        guide.y - Math.sin(guide.angle) * guideLength / 2
-      );
-      ctx.lineTo(
-        guide.x + Math.cos(guide.angle) * guideLength / 2,
-        guide.y + Math.sin(guide.angle) * guideLength / 2
-      );
+      ctx.moveTo(pos.x + (isLeft ? -cornerLength/2 : -cornerLength/2), pos.y);
+      ctx.lineTo(pos.x + (isLeft ? cornerLength/2 : cornerLength/2), pos.y);
+      ctx.stroke();
+      
+      // Linha vertical
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y + (isTop ? -cornerLength/2 : -cornerLength/2));
+      ctx.lineTo(pos.x, pos.y + (isTop ? cornerLength/2 : cornerLength/2));
       ctx.stroke();
     });
     
-    // Texto instrucional com fundo
-    ctx.font = 'bold 18px system-ui';
-    const text = 'Posicione seu rosto no oval';
-    const textMetrics = ctx.measureText(text);
-    const textX = centerX;
-    const textY = centerY + radiusY + 50;
+    // Texto instrucional moderno
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, system-ui';
+    const mainText = 'Posicione seu rosto';
+    const subText = 'Centralize dentro do oval';
     
-    // Fundo do texto
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillRect(
-      textX - textMetrics.width / 2 - 15,
-      textY - 25,
-      textMetrics.width + 30,
-      35
-    );
+    const mainMetrics = ctx.measureText(mainText);
+    const subMetrics = ctx.measureText(subText);
+    const textY = centerY + radiusY + 60;
     
-    // Texto
-    ctx.fillStyle = '#3b82f6';
+    // Fundo moderno para o texto - usando fillRect simples em vez de roundRect  
+    const textBgWidth = Math.max(mainMetrics.width, subMetrics.width) + 40;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(centerX - textBgWidth/2, textY - 40, textBgWidth, 70);
+    
+    // Texto principal
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText(text, textX, textY - 5);
+    ctx.fillText(mainText, centerX, textY - 10);
+    
+    // Subtexto
+    ctx.font = '16px -apple-system, BlinkMacSystemFont, system-ui';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.fillText(subText, centerX, textY + 15);
   };
 
   const animate = () => {
