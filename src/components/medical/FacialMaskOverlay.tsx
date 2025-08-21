@@ -122,9 +122,9 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
       const baseRadiusX = displayROI.width / 2;
       const baseRadiusY = displayROI.height / 2;
       
-      // Ajustar forma oval mais orgânica (formato face)
-      const radiusX = baseRadiusX + 30;
-      const radiusY = baseRadiusY + 50;
+      // Ajustar forma oval vertical (formato face humana - proporção 1.6:1)
+      const radiusX = baseRadiusX + 20;
+      const radiusY = baseRadiusY + 70;
       
       // Criar máscara suave com múltiplas camadas
       const qualityColor = getQualityColor(signalQuality);
@@ -239,9 +239,9 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
     ctx.fillStyle = searchGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Oval de busca mais elegante
-    const radiusX = canvas.width * 0.18;
-    const radiusY = canvas.height * 0.25;
+    // Oval de busca vertical (proporção face humana 1.5:1)
+    const radiusX = canvas.width * 0.15;
+    const radiusY = canvas.width * 0.225;
     
     // Múltiplas camadas para efeito suave
     ctx.globalCompositeOperation = 'destination-out';
