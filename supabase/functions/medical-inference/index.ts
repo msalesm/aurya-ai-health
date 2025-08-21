@@ -13,6 +13,38 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check - REQUIRED for medical inference
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required for medical inference processing',
+        code: 'AUTH_REQUIRED'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Create Supabase client to verify auth
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // Verify JWT token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
+    if (authError || !user) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid or expired authentication token',
+        code: 'AUTH_INVALID'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     const { 
       symptoms, 
       vitalSigns, 

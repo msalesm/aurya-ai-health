@@ -57,6 +57,41 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check - REQUIRED for voice analysis processing
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      secureLog('WARN', 'Missing or invalid authorization header');
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required for voice analysis processing',
+        code: 'AUTH_REQUIRED'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Import createClient for auth verification
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.7.1');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // Verify JWT token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
+    if (authError || !user) {
+      secureLog('WARN', 'Invalid authentication token', { error: authError?.message });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid or expired authentication token',
+        code: 'AUTH_INVALID'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     const requestData = await req.json();
     
     // Validate input
@@ -73,6 +108,18 @@ serve(async (req) => {
     }
 
     const { audioData, userId, consultationId } = requestData;
+
+    // Validate user ID matches authenticated user
+    if (userId && userId !== user.id) {
+      secureLog('WARN', 'User ID mismatch in voice analysis request');
+      return new Response(JSON.stringify({ 
+        error: 'User ID does not match authenticated user',
+        code: 'USER_MISMATCH'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     secureLog('INFO', 'Processing voice analysis', { 
       userId: '[USER_ID_REMOVED]',

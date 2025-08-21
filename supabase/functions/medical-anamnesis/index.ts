@@ -97,6 +97,36 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check - REQUIRED for medical data processing
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      secureLog('WARN', 'Missing or invalid authorization header');
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required for medical data processing',
+        code: 'AUTH_REQUIRED'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Verify JWT token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
+    if (authError || !user) {
+      secureLog('WARN', 'Invalid authentication token', { error: authError?.message });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid or expired authentication token',
+        code: 'AUTH_INVALID'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    secureLog('INFO', 'Authenticated medical anamnesis request', { userId: '[SANITIZED]' });
     const requestData = await req.json();
     
     // Validate input
@@ -113,6 +143,18 @@ serve(async (req) => {
     }
 
     const { message, userId, consultationId, conversationHistory = [], isStructuredAnalysis = false } = requestData;
+
+    // Validate user ID matches authenticated user
+    if (userId && userId !== user.id) {
+      secureLog('WARN', 'User ID mismatch in request', { requestUserId: '[SANITIZED]', authUserId: '[SANITIZED]' });
+      return new Response(JSON.stringify({ 
+        error: 'User ID does not match authenticated user',
+        code: 'USER_MISMATCH'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     secureLog('INFO', 'Processing medical anamnesis', { 
       userId: '[USER_ID_REMOVED]',

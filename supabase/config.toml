@@ -1,16 +1,19 @@
 project_id = "skwpuolpkgntqdmgzwlr"
 
 [functions.medical-anamnesis]
-verify_jwt = false
-
-[functions.voice-analysis]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-analysis-whisper]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-health-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.medical-inference]
-verify_jwt = false
+verify_jwt = true
+
+[functions.google-facial-analysis]
+verify_jwt = true
+
+[functions.hybrid-voice-analysis]
+verify_jwt = true

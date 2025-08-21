@@ -58,6 +58,41 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check - REQUIRED for facial analysis processing
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      secureLog('WARN', 'Missing or invalid authorization header');
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required for facial analysis processing',
+        code: 'AUTH_REQUIRED'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Import createClient for auth verification
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.7.1');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // Verify JWT token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
+    if (authError || !user) {
+      secureLog('WARN', 'Invalid authentication token', { error: authError?.message });
+      return new Response(JSON.stringify({ 
+        error: 'Invalid or expired authentication token',
+        code: 'AUTH_INVALID'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
     const requestData = await req.json();
     
     // Validate input
