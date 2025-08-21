@@ -185,27 +185,81 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
   };
 
   const drawSearchIndication = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-    // Draw search indication
-    ctx.strokeStyle = '#6b7280'; // gray-500
+    // Desenhar overlay semi-transparente em toda a área
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Calcular centro e dimensões do oval para busca
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radiusX = canvas.width * 0.15; // Oval menor para indicar onde posicionar o rosto
+    const radiusY = canvas.height * 0.2;
+    
+    // Limpar área oval (criar "janela" transparente)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Restaurar modo de desenho normal
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Desenhar contorno oval pulsante
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#3b82f6'; // blue-500
+    ctx.setLineDash([10, 5]);
+    
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Desenhar guias de alinhamento elegantes
+    const guideLength = 25;
+    const guideDistance = radiusX * 0.8;
+    const guides = [
+      // Guias horizontais
+      { x: centerX - guideDistance, y: centerY, angle: 0 },
+      { x: centerX + guideDistance, y: centerY, angle: Math.PI },
+      // Guias verticais
+      { x: centerX, y: centerY - radiusY * 0.7, angle: Math.PI / 2 },
+      { x: centerX, y: centerY + radiusY * 0.7, angle: -Math.PI / 2 }
+    ];
+    
     ctx.lineWidth = 2;
-    ctx.setLineDash([15, 10]);
+    ctx.setLineDash([]);
+    guides.forEach(guide => {
+      ctx.beginPath();
+      ctx.moveTo(
+        guide.x - Math.cos(guide.angle) * guideLength / 2,
+        guide.y - Math.sin(guide.angle) * guideLength / 2
+      );
+      ctx.lineTo(
+        guide.x + Math.cos(guide.angle) * guideLength / 2,
+        guide.y + Math.sin(guide.angle) * guideLength / 2
+      );
+      ctx.stroke();
+    });
     
-    const searchX = canvas.width * 0.35;
-    const searchY = canvas.height * 0.2;
-    const searchWidth = canvas.width * 0.3;
-    const searchHeight = canvas.height * 0.4;
+    // Texto instrucional com fundo
+    ctx.font = 'bold 18px system-ui';
+    const text = 'Posicione seu rosto no oval';
+    const textMetrics = ctx.measureText(text);
+    const textX = centerX;
+    const textY = centerY + radiusY + 50;
     
-    ctx.strokeRect(searchX, searchY, searchWidth, searchHeight);
-    
-    // Add search text
-    ctx.fillStyle = '#6b7280';
-    ctx.font = '18px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      'Position your face in the frame',
-      canvas.width / 2,
-      searchY - 20
+    // Fundo do texto
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(
+      textX - textMetrics.width / 2 - 15,
+      textY - 25,
+      textMetrics.width + 30,
+      35
     );
+    
+    // Texto
+    ctx.fillStyle = '#3b82f6';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, textX, textY - 5);
   };
 
   const animate = () => {
