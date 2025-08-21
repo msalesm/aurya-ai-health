@@ -112,53 +112,59 @@ const StructuredAnamnesis: React.FC<StructuredAnamnesisProps> = ({ onComplete })
   const calculateUrgencyScore = (answers: Record<string, any>): number => {
     let score = 0;
     
-    // Sintomas críticos de emergência - pontuação alta para garantir classificação correta
-    if (answers.breathing === 'Sim') score += 40; // Dificuldade respiratória = emergência
-    if (answers.chest_pain === 'Sim') score += 35; // Dor no peito = emergência
+    // Combinação crítica que SEMPRE resulta em emergência
+    if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') {
+      return 100; // Máximo - dor no peito + dificuldade respirar = EMERGÊNCIA
+    }
     
-    // Combinação crítica: dor no peito + dificuldade respirar = emergência imediata
-    if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') score += 20;
+    // Sintomas críticos individuais (pontuação alta)
+    if (answers.breathing === 'Sim') score += 50;  // Dificuldade respiratória = emergência
+    if (answers.chest_pain === 'Sim') score += 40; // Dor no peito = muito urgente
     
-    // Outros sintomas importantes
-    if (answers.fever_check === 'Sim') score += 15;
+    // Outros sintomas graves
+    if (answers.fever_check === 'Sim') score += 20;
     
     // Intensidade da dor
     const painIntensity = Number(answers.pain_intensity);
-    if (painIntensity >= 8) score += 15;
-    else if (painIntensity >= 6) score += 10;
-    else if (painIntensity >= 4) score += 5;
+    if (painIntensity >= 9) score += 25;
+    else if (painIntensity >= 7) score += 15;
+    else if (painIntensity >= 5) score += 10;
     
-    // Fator duração - sintomas agudos são mais preocupantes
+    // Sintomas agudos são mais preocupantes
     if (answers.symptom_duration === 'Menos de 1 dia' && score > 30) score += 10;
     
     return Math.min(score, 100);
   };
 
   const getUrgencyLevel = (score: number): string => {
-    if (score >= 65) return 'crítica';   // Reduzido para capturar mais casos críticos
-    if (score >= 45) return 'alta';      // Ajustado proporcionalmente
-    if (score >= 25) return 'média';     // Ajustado proporcionalmente
-    return 'baixa';
+    if (score >= 70) return 'crítica';   // Manchester Vermelho - Emergência
+    if (score >= 40) return 'alta';      // Manchester Laranja - Muito Urgente  
+    if (score >= 25) return 'média';     // Manchester Amarelo - Urgente
+    return 'baixa';                      // Manchester Verde/Azul - Pouco/Não Urgente
   };
 
   const generateRecommendations = (answers: Record<string, any>, score: number): string[] => {
     const recommendations = [];
     
-    if (score >= 65) {
-      recommendations.push('EMERGÊNCIA: Procure atendimento médico imediatamente');
-      recommendations.push('Ligue para o SAMU (192) ou vá ao pronto-socorro agora');
+    if (score >= 70) {
+      recommendations.push('🚨 EMERGÊNCIA: Procurar atendimento médico IMEDIATAMENTE');
+      recommendations.push('Ligar para 192 (SAMU) ou dirigir-se ao pronto-socorro AGORA');
+      recommendations.push('NÃO aguardar - risco iminente à vida');
       if (answers.breathing === 'Sim' && answers.chest_pain === 'Sim') {
-        recommendations.push('Sintomas de possível emergência cardíaca - não espere');
+        recommendations.push('⚠️ Possível emergência cardiorrespiratória - ação imediata necessária');
       }
-    } else if (score >= 45) {
-      recommendations.push('Procure atendimento médico urgente nas próximas 2-4 horas');
-      recommendations.push('Monitore os sintomas - procure emergência se piorarem');
+    } else if (score >= 40) {
+      recommendations.push('⚠️ MUITO URGENTE: Procurar atendimento em até 10 minutos');
+      recommendations.push('Dirigir-se ao pronto-socorro sem demora');
+      recommendations.push('Monitorar sintomas - pode deteriorar rapidamente');
     } else if (score >= 25) {
-      recommendations.push('Agende consulta médica nas próximas 24-48 horas');
-      recommendations.push('Monitore os sintomas');
+      recommendations.push('⏰ URGENTE: Procurar atendimento em até 60 minutos');
+      recommendations.push('Dirigir-se à UPA ou pronto-socorro');
+      recommendations.push('Monitorar sintomas continuamente');
     } else {
-      recommendations.push('Considere consulta médica de rotina');
-      recommendations.push('Observe a evolução dos sintomas');
+      recommendations.push('Procurar atendimento médico em algumas horas');
+      recommendations.push('Pode aguardar em UPA ou agendar consulta');
+      recommendations.push('Observar evolução dos sintomas');
     }
     
     return recommendations;

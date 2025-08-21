@@ -103,72 +103,82 @@ export const FacialMaskOverlay: React.FC<FacialMaskOverlayProps> = ({
         drawSearchIndication(ctx, canvas);
         return;
       }
+
+      // Desenhar overlay semi-transparente em toda a área
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      const color = getQualityColor(signalQuality);
-      
-      // Draw facial contour outline
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([]);
-      
-      // Draw elliptical face outline
+      // Calcular centro e dimensões do oval
       const centerX = displayROI.x + displayROI.width / 2;
       const centerY = displayROI.y + displayROI.height / 2;
-      const radiusX = displayROI.width * 0.8;
-      const radiusY = displayROI.height * 1.4;
+      const radiusX = (displayROI.width + 40) / 2;
+      const radiusY = (displayROI.height + 60) / 2;
       
+      // Limpar área oval (criar "janela" transparente)
+      ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Restaurar modo de desenho normal
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // Desenhar contorno oval com gradiente
+      const qualityColor = getQualityColor(signalQuality);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = qualityColor;
+      
+      // Oval principal
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
       ctx.stroke();
       
-      // Draw ROI rectangle for analysis area
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 5]);
-      ctx.strokeRect(displayROI.x, displayROI.y, displayROI.width, displayROI.height);
+      // Desenhar guias de alinhamento elegantes
+      const guideLength = 30;
+      const guideDistance = radiusX * 0.7;
+      const guides = [
+        // Guias horizontais (esquerda e direita)
+        { x: centerX - guideDistance, y: centerY, angle: 0 },
+        { x: centerX + guideDistance, y: centerY, angle: Math.PI },
+        // Guias verticais (cima e baixo)  
+        { x: centerX, y: centerY - radiusY * 0.6, angle: Math.PI / 2 },
+        { x: centerX, y: centerY + radiusY * 0.6, angle: -Math.PI / 2 }
+      ];
       
-      // Add corner indicators
-      const cornerSize = Math.min(20, displayROI.width * 0.15, displayROI.height * 0.15);
-      ctx.setLineDash([]);
       ctx.lineWidth = 3;
+      guides.forEach(guide => {
+        ctx.beginPath();
+        ctx.moveTo(
+          guide.x - Math.cos(guide.angle) * guideLength / 2,
+          guide.y - Math.sin(guide.angle) * guideLength / 2
+        );
+        ctx.lineTo(
+          guide.x + Math.cos(guide.angle) * guideLength / 2,
+          guide.y + Math.sin(guide.angle) * guideLength / 2
+        );
+        ctx.stroke();
+      });
+
+      // Texto de qualidade do sinal com fundo semi-transparente
+      ctx.font = 'bold 16px system-ui';
+      const text = `Signal: ${signalQuality.toUpperCase()}`;
+      const textMetrics = ctx.measureText(text);
+      const textX = centerX;
+      const textY = centerY + radiusY + 40;
       
-      // Top-left corner
-      ctx.beginPath();
-      ctx.moveTo(displayROI.x, displayROI.y + cornerSize);
-      ctx.lineTo(displayROI.x, displayROI.y);
-      ctx.lineTo(displayROI.x + cornerSize, displayROI.y);
-      ctx.stroke();
-      
-      // Top-right corner
-      ctx.beginPath();
-      ctx.moveTo(displayROI.x + displayROI.width - cornerSize, displayROI.y);
-      ctx.lineTo(displayROI.x + displayROI.width, displayROI.y);
-      ctx.lineTo(displayROI.x + displayROI.width, displayROI.y + cornerSize);
-      ctx.stroke();
-      
-      // Bottom-left corner
-      ctx.beginPath();
-      ctx.moveTo(displayROI.x, displayROI.y + displayROI.height - cornerSize);
-      ctx.lineTo(displayROI.x, displayROI.y + displayROI.height);
-      ctx.lineTo(displayROI.x + cornerSize, displayROI.y + displayROI.height);
-      ctx.stroke();
-      
-      // Bottom-right corner
-      ctx.beginPath();
-      ctx.moveTo(displayROI.x + displayROI.width - cornerSize, displayROI.y + displayROI.height);
-      ctx.lineTo(displayROI.x + displayROI.width, displayROI.y + displayROI.height);
-      ctx.lineTo(displayROI.x + displayROI.width, displayROI.y + displayROI.height - cornerSize);
-      ctx.stroke();
-      
-      // Add quality indicator text
-      ctx.fillStyle = color;
-      ctx.font = '16px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(
-        `Signal: ${signalQuality.toUpperCase()}`,
-        centerX,
-        displayROI.y - 10
+      // Fundo do texto
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        textX - textMetrics.width / 2 - 10,
+        textY - 20,
+        textMetrics.width + 20,
+        30
       );
+      
+      // Texto
+      ctx.fillStyle = qualityColor;
+      ctx.textAlign = 'center';
+      ctx.fillText(text, textX, textY - 5);
     } else {
       drawSearchIndication(ctx, canvas);
     }

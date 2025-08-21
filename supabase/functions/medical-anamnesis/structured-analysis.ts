@@ -1,36 +1,36 @@
 // Funções utilitárias para análise estruturada de anamnese médica
 
 export function calculateStructuredUrgency(answers: Record<string, any>): string {
-  let urgencyScore = 0;
+  let score = 0;
 
-  // Sintomas críticos - garantir que dor no peito + dificuldade respirar = emergência
-  if (answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') urgencyScore += 4;
-  if (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim') urgencyScore += 4;
-  if (answers.consciousness_loss === 'sim') urgencyScore += 4;
-  if (answers.severe_bleeding === 'sim') urgencyScore += 4;
-
-  // Combinação crítica - dor no peito + dificuldade respirar
+  // Combinação crítica que SEMPRE resulta em emergência máxima
   if ((answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') && 
       (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim')) {
-    urgencyScore += 3; // Bônus para combinação crítica
+    return 'crítica'; // Manchester Vermelho - Emergência imediata
   }
 
-  // Sintomas graves (peso 3)
-  if (answers.pain_intensity && answers.pain_intensity >= 8) urgencyScore += 3;
-  if (answers.intense_pain && answers.intense_pain >= 8) urgencyScore += 3;
-  if (answers.fever && answers.fever >= 39) urgencyScore += 3;
-  if (answers.fever_check === 'Sim') urgencyScore += 2;
-  if (answers.vomiting === 'sim') urgencyScore += 2;
+  // Sintomas críticos individuais
+  if (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim') score += 6;
+  if (answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') score += 5;
+  if (answers.consciousness_loss === 'sim') score += 6;
+  if (answers.severe_bleeding === 'sim') score += 6;
+
+  // Sintomas graves
+  if (answers.pain_intensity && answers.pain_intensity >= 8) score += 4;
+  if (answers.intense_pain && answers.intense_pain >= 8) score += 4;
+  if (answers.fever && answers.fever >= 39) score += 3;
+  if (answers.fever_check === 'Sim') score += 2;
+  if (answers.vomiting === 'sim') score += 2;
 
   // Duração dos sintomas agudos
-  if (answers.symptom_duration === 'Menos de 1 dia' || answers.symptom_duration === 'menos_2_horas') urgencyScore += 2;
-  if (answers.symptom_duration === '2_6_horas') urgencyScore += 1;
+  if (answers.symptom_duration === 'Menos de 1 dia' || answers.symptom_duration === 'menos_2_horas') score += 2;
+  if (answers.symptom_duration === '2_6_horas') score += 1;
 
-  // Classificar urgência - ajustado para ser mais sensível a emergências
-  if (urgencyScore >= 7) return 'crítica';
-  if (urgencyScore >= 4) return 'alta';
-  if (urgencyScore >= 2) return 'média';
-  return 'baixa';
+  // Classificação alinhada com Manchester
+  if (score >= 8) return 'crítica';    // Manchester Vermelho
+  if (score >= 5) return 'alta';       // Manchester Laranja
+  if (score >= 3) return 'média';      // Manchester Amarelo
+  return 'baixa';                      // Manchester Verde/Azul
 }
 
 export function extractStructuredSymptoms(answers: Record<string, any>): string[] {
@@ -51,28 +51,37 @@ export function generateStructuredRecommendations(answers: Record<string, any>):
 
   switch (urgency) {
     case 'crítica':
-      recommendations.push('EMERGÊNCIA: Procure atendimento médico imediatamente');
-      recommendations.push('Ligue para o SAMU (192) se necessário');
+      recommendations.push('🚨 EMERGÊNCIA: Procurar atendimento médico IMEDIATAMENTE');
+      recommendations.push('Ligar para 192 (SAMU) ou dirigir-se ao pronto-socorro AGORA');
+      recommendations.push('NÃO aguardar - risco iminente à vida');
+      if ((answers.chest_pain === 'Sim' || answers.chest_pain === 'sim') && 
+          (answers.breathing === 'Sim' || answers.breathing_difficulty === 'sim')) {
+        recommendations.push('⚠️ Possível emergência cardiorrespiratória - ação imediata necessária');
+      }
       break;
     case 'alta':
-      recommendations.push('Busque atendimento médico urgente nas próximas 2-4 horas');
-      recommendations.push('Vá ao pronto-socorro se os sintomas piorarem');
+      recommendations.push('⚠️ MUITO URGENTE: Procurar atendimento em até 10 minutos');
+      recommendations.push('Dirigir-se ao pronto-socorro sem demora');
+      recommendations.push('Condição pode deteriorar rapidamente');
       break;
     case 'média':
-      recommendations.push('Agende consulta médica nas próximas 24-48 horas');
-      recommendations.push('Monitore os sintomas');
+      recommendations.push('⏰ URGENTE: Procurar atendimento em até 60 minutos');
+      recommendations.push('Dirigir-se à UPA ou pronto-socorro');
+      recommendations.push('Monitorar sintomas continuamente');
       break;
-    default:
-      recommendations.push('Monitore os sintomas e considere teleconsulta');
-      recommendations.push('Procure atendimento se houver piora');
+    case 'baixa':
+      recommendations.push('Procurar atendimento médico em algumas horas');
+      recommendations.push('Pode aguardar em UPA ou agendar consulta');
+      recommendations.push('Monitorar evolução dos sintomas');
+      break;
   }
 
   if (answers.medications === 'sim') {
-    recommendations.push('Informe ao médico sobre medicamentos em uso');
+    recommendations.push('💊 Levar lista completa de medicamentos atuais');
   }
   
   if (answers.chronic_conditions === 'sim') {
-    recommendations.push('Relate condições crônicas existentes');
+    recommendations.push('📋 Informar sobre condições crônicas pré-existentes');
   }
 
   return recommendations;
